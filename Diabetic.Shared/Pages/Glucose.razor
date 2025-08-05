@@ -1,0 +1,400 @@
+@namespace Diabetic.Shared.Pages
+@page "/glucose"
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+
+<PageTitle>Glucose Tracking</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-graph-up me-2"></i>Glucose Tracking</h2>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="ShowAddModal">
+                <i class="bi bi-plus-circle me-2"></i>Add Reading
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Today's Average</h5>
+                    <h3>@(todayAverage.ToString("F0")) mg/dL</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>Last Reading</h5>
+                    <h3>@(lastReading?.Value.ToString("F0") ?? "--") mg/dL</h3>
+                    <small>@(lastReading?.MeasurementTime.ToString("HH:mm") ?? "--")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5>In Range</h5>
+                    <h3>@(inRangePercentage.ToString("F0"))%</h3>
+                    <small>80-180 mg/dL</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Readings Today</h5>
+                    <h3>@todayReadings.Count</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Placeholder -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-graph-up me-2"></i>Glucose Trends (Last 7 Days)</h5>
+                </div>
+                <div class="card-body" style="height: 300px;">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <div class="text-muted">
+                            <i class="bi bi-graph-up" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Chart will be implemented with Chart.js</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Readings -->
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-list me-2"></i>Recent Readings</h5>
+                </div>
+                <div class="card-body">
+                    @if (!readings.Any())
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-plus-circle" style="font-size: 3rem;"></i>
+                            <p class="mt-2">No glucose readings yet. Add your first reading above.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>Value</th>
+                                        <th>Type</th>
+                                        <th>Mood</th>
+                                        <th>Notes</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var reading in readings.Take(20))
+                                    {
+                                        <tr>
+                                            <td>@reading.MeasurementTime.ToString("dd/MM HH:mm")</td>
+                                            <td>
+                                                <span class="badge @GetGlucoseBadgeClass(reading.Value)">
+                                                    @reading.Value.ToString("F0") mg/dL
+                                                </span>
+                                            </td>
+                                            <td>@reading.MeasurementType</td>
+                                            <td>@reading.Mood</td>
+                                            <td>@(reading.Notes?.Length > 30 ? reading.Notes.Substring(0, 30) + "..." : reading.Notes)</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="@(() => EditReading(reading))">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteReading(reading.Id))">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(editingReading == null ? "Add" : "Edit") Glucose Reading</h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="currentReading" OnValidSubmit="SaveReading">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label class="form-label">Glucose Value (mg/dL)</label>
+                        <InputNumber @bind-Value="currentReading.Value" class="form-control" placeholder="e.g. 120" />
+                        <ValidationMessage For="() => currentReading.Value" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Measurement Time</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="currentReading.MeasurementTime" class="form-control" />
+                        <ValidationMessage For="() => currentReading.MeasurementTime" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Measurement Type</label>
+                        <InputSelect @bind-Value="currentReading.MeasurementType" class="form-select">
+                            <option value="">Select type...</option>
+                            <option value="Fasting">Fasting</option>
+                            <option value="PostMeal">Post-Meal</option>
+                            <option value="Bedtime">Bedtime</option>
+                            <option value="Random">Random</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => currentReading.MeasurementType" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Mood (Optional)</label>
+                        <InputSelect @bind-Value="currentReading.Mood" class="form-select">
+                            <option value="">Select mood...</option>
+                            <option value="Good">Good</option>
+                            <option value="Bad">Bad</option>
+                            <option value="Stressed">Stressed</option>
+                            <option value="Tired">Tired</option>
+                            <option value="Anxious">Anxious</option>
+                            <option value="Happy">Happy</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <InputTextArea @bind-Value="currentReading.Notes" class="form-control" rows="3" placeholder="Any additional notes..."></InputTextArea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>Save Reading
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<GlucoseReading> readings = new();
+    private List<GlucoseReading> todayReadings = new();
+    private GlucoseReading? lastReading;
+    private double todayAverage = 0;
+    private double inRangePercentage = 0;
+    
+    private bool showModal = false;
+    private GlucoseReading currentReading = new();
+    private GlucoseReading? editingReading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // TODO: Replace with actual user ID from authentication
+            var userId = 1;
+            var startDate = DateTime.Today.AddDays(-30);
+            
+            // TODO: Replace with actual API call
+            // readings = await Http.GetFromJsonAsync<List<GlucoseReading>>($"/api/glucose/user/{userId}?startDate={startDate:yyyy-MM-dd}") ?? new();
+            
+            // Mock data for demonstration
+            readings = GenerateMockData();
+            
+            CalculateStatistics();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Add proper error handling
+            Console.WriteLine($"Error loading glucose data: {ex.Message}");
+        }
+    }
+
+    private void CalculateStatistics()
+    {
+        todayReadings = readings.Where(r => r.MeasurementTime.Date == DateTime.Today).ToList();
+        lastReading = readings.OrderByDescending(r => r.MeasurementTime).FirstOrDefault();
+        todayAverage = todayReadings.Any() ? todayReadings.Average(r => r.Value) : 0;
+        
+        var recentReadings = readings.Where(r => r.MeasurementTime >= DateTime.Today.AddDays(-7)).ToList();
+        if (recentReadings.Any())
+        {
+            var inRange = recentReadings.Where(r => r.Value >= 80 && r.Value <= 180).Count();
+            inRangePercentage = (double)inRange / recentReadings.Count * 100;
+        }
+    }
+
+    private List<GlucoseReading> GenerateMockData()
+    {
+        var mockReadings = new List<GlucoseReading>();
+        var random = new Random();
+        
+        for (int i = 0; i < 20; i++)
+        {
+            mockReadings.Add(new GlucoseReading
+            {
+                Id = i + 1,
+                UserId = 1,
+                Value = random.Next(70, 200),
+                MeasurementTime = DateTime.Now.AddHours(-i * 6),
+                MeasurementType = new[] { "Fasting", "PostMeal", "Bedtime", "Random" }[random.Next(4)],
+                Mood = new[] { "Good", "Bad", "Stressed", "Tired" }[random.Next(4)],
+                Notes = i % 3 == 0 ? "Sample note" : null,
+                CreatedAt = DateTime.Now.AddHours(-i * 6)
+            });
+        }
+        
+        return mockReadings.OrderByDescending(r => r.MeasurementTime).ToList();
+    }
+
+    private void ShowAddModal()
+    {
+        editingReading = null;
+        currentReading = new GlucoseReading
+        {
+            UserId = 1, // TODO: Get from authentication
+            MeasurementTime = DateTime.Now
+        };
+        showModal = true;
+    }
+
+    private void EditReading(GlucoseReading reading)
+    {
+        editingReading = reading;
+        currentReading = new GlucoseReading
+        {
+            Id = reading.Id,
+            UserId = reading.UserId,
+            Value = reading.Value,
+            MeasurementTime = reading.MeasurementTime,
+            MeasurementType = reading.MeasurementType,
+            Mood = reading.Mood,
+            Notes = reading.Notes
+        };
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        editingReading = null;
+        currentReading = new();
+    }
+
+    private async Task SaveReading()
+    {
+        try
+        {
+            if (editingReading == null)
+            {
+                // Add new reading
+                // TODO: Replace with actual API call
+                // await Http.PostAsJsonAsync("/api/glucose", currentReading);
+                
+                // Mock: Add to local list
+                currentReading.Id = readings.Max(r => r.Id) + 1;
+                currentReading.CreatedAt = DateTime.Now;
+                readings.Insert(0, currentReading);
+            }
+            else
+            {
+                // Update existing reading
+                // TODO: Replace with actual API call
+                // await Http.PutAsJsonAsync($"/api/glucose/{currentReading.Id}", currentReading);
+                
+                // Mock: Update in local list
+                var index = readings.FindIndex(r => r.Id == currentReading.Id);
+                if (index >= 0)
+                {
+                    readings[index] = currentReading;
+                }
+            }
+            
+            CalculateStatistics();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Add proper error handling
+            Console.WriteLine($"Error saving glucose reading: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteReading(int id)
+    {
+        try
+        {
+            // TODO: Replace with actual API call
+            // await Http.DeleteAsync($"/api/glucose/{id}");
+            
+            // Mock: Remove from local list
+            readings.RemoveAll(r => r.Id == id);
+            CalculateStatistics();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Add proper error handling
+            Console.WriteLine($"Error deleting glucose reading: {ex.Message}");
+        }
+    }
+
+    private string GetGlucoseBadgeClass(double value)
+    {
+        if (value < 70) return "bg-danger";
+        if (value <= 180) return "bg-success";
+        if (value <= 250) return "bg-warning";
+        return "bg-danger";
+    }
+
+    public class GlucoseReading
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        
+        [Required]
+        [Range(30, 600, ErrorMessage = "Glucose value must be between 30 and 600 mg/dL")]
+        public double Value { get; set; }
+        
+        [Required]
+        public DateTime MeasurementTime { get; set; }
+        
+        [Required]
+        public string MeasurementType { get; set; } = string.Empty;
+        
+        public string? Mood { get; set; }
+        public string? Notes { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}

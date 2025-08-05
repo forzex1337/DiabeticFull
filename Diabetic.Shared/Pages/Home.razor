@@ -1,0 +1,113 @@
+@namespace Diabetic.Shared.Pages
+@page "/"
+
+<PageTitle>Diabetic - Dashboard</PageTitle>
+
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-3 mb-3">🩺 Diabetic Management 🩺</h1>
+        <p class="lead fs-4">Your personal diabetes management companion</p>
+        <p class="text-muted">Track glucose levels, manage meals, monitor insulin, and stay healthy</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">📊</div>
+                <h4 class="text-center mb-3">Glucose Tracking</h4>
+                <p class="text-center text-muted mb-4">Monitor your blood glucose levels throughout the day. Track patterns and trends.</p>
+                <div class="text-center">
+                    <a href="/glucose" class="btn btn-primary">
+                        <i class="bi bi-graph-up me-2"></i>View Glucose
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">🍽️</div>
+                <h4 class="text-center mb-3">Meal Planning</h4>
+                <p class="text-center text-muted mb-4">Plan and track your meals. Calculate carbs, calories, and insulin requirements.</p>
+                <div class="text-center">
+                    <a href="/meals" class="btn btn-primary">
+                        <i class="bi bi-calendar me-2"></i>Manage Meals
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">🔍</div>
+                <h4 class="text-center mb-3">Food Search</h4>
+                <p class="text-center text-muted mb-4">Search for food products and their nutritional information. Scan barcodes for quick lookup.</p>
+                <div class="text-center">
+                    <a href="/food-search" class="btn btn-primary">
+                        <i class="bi bi-search me-2"></i>Search Food
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">💉</div>
+                <h4 class="text-center mb-3">Insulin Tracking</h4>
+                <p class="text-center text-muted mb-4">Record insulin doses and track injection sites. Monitor your insulin regimen.</p>
+                <div class="text-center">
+                    <a href="/insulin" class="btn btn-primary">
+                        <i class="bi bi-droplet me-2"></i>Track Insulin
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">💊</div>
+                <h4 class="text-center mb-3">Medications</h4>
+                <p class="text-center text-muted mb-4">Manage your medications and set reminders for doses.</p>
+                <div class="text-center">
+                    <a href="/medications" class="btn btn-primary">
+                        <i class="bi bi-pill me-2"></i>Manage Meds
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">📝</div>
+                <h4 class="text-center mb-3">Daily Notes</h4>
+                <p class="text-center text-muted mb-4">Keep track of your mood, activities, and how you're feeling each day.</p>
+                <div class="text-center">
+                    <a href="/daily-notes" class="btn btn-primary">
+                        <i class="bi bi-journal me-2"></i>Daily Notes
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">📋</div>
+                <h4 class="text-center mb-3">Reports</h4>
+                <p class="text-center text-muted mb-4">Generate reports for your doctor visits. Export your data as PDF or CSV.</p>
+                <div class="text-center">
+                    <a href="/reports" class="btn btn-primary">
+                        <i class="bi bi-file-earmark-text me-2"></i>View Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="feature-card">
+                <div class="feature-icon text-center">⚙️</div>
+                <h4 class="text-center mb-3">Settings</h4>
+                <p class="text-center text-muted mb-4">Manage your profile, set target ranges, and configure app preferences.</p>
+                <div class="text-center">
+                    <a href="/profile" class="btn btn-primary">
+                        <i class="bi bi-gear me-2"></i>Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

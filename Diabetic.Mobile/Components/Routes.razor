@@ -1,0 +1,22 @@
+@using Diabetic.Shared.Layouts
+
+<Router AppAssembly="@typeof(MauiProgram).Assembly" 
+        AdditionalAssemblies="new[] { 
+            typeof(Diabetic.Shared.Pages.Home).Assembly,
+            typeof(Diabetic.Shared.Layouts.MainLayout).Assembly 
+        }">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Page not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <div class="alert alert-danger">
+                <h4>Page not found</h4>
+                <p>Sorry, there's nothing at this address.</p>
+                <a href="/" class="btn btn-primary">Go Home</a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

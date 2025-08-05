@@ -1,0 +1,186 @@
+/* Diabetic App Theme Styles */
+
+:root {
+    --diabetic-primary: #0d6efd;
+    --diabetic-success: #198754;
+    --diabetic-warning: #ffc107;
+    --diabetic-danger: #dc3545;
+    --diabetic-info: #0dcaf0;
+    --diabetic-light: #f8f9fa;
+    --diabetic-dark: #212529;
+}
+
+.hero-section {
+    background: linear-gradient(135deg, var(--diabetic-primary) 0%, #4dabf7 100%);
+    color: white;
+    padding: 3rem 0;
+    margin-bottom: 2rem;
+}
+
+.feature-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    height: 100%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--diabetic-primary);
+}
+
+.glucose-normal {
+    color: var(--diabetic-success);
+}
+
+.glucose-low {
+    color: var(--diabetic-warning);
+}
+
+.glucose-high {
+    color: var(--diabetic-danger);
+}
+
+.glucose-critical {
+    color: var(--diabetic-danger);
+    font-weight: bold;
+}
+
+.meal-card {
+    border-left: 4px solid var(--diabetic-primary);
+}
+
+.meal-card.breakfast {
+    border-left-color: #ffd43b;
+}
+
+.meal-card.lunch {
+    border-left-color: #51cf66;
+}
+
+.meal-card.dinner {
+    border-left-color: #ff8787;
+}
+
+.meal-card.snack {
+    border-left-color: #74c0fc;
+}
+
+.food-product-card {
+    transition: transform 0.2s ease;
+}
+
+.food-product-card:hover {
+    transform: scale(1.02);
+}
+
+.stats-card {
+    background: linear-gradient(45deg, var(--diabetic-primary), #4dabf7);
+    color: white;
+    border: none;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.nav-link {
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0.25rem;
+}
+
+.btn-primary {
+    background-color: var(--diabetic-primary);
+    border-color: var(--diabetic-primary);
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(var(--diabetic-primary), 0.05);
+}
+
+.modal-header {
+    background-color: var(--diabetic-light);
+    border-bottom: 1px solid #dee2e6;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--diabetic-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(45deg, var(--diabetic-primary), #4dabf7) !important;
+}
+
+.text-primary {
+    color: var(--diabetic-primary) !important;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 0;
+    }
+    
+    .feature-card {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-icon {
+        font-size: 2.5rem;
+    }
+}
+
+/* Dark mode support (when implemented) */
+@media (prefers-color-scheme: dark) {
+    .feature-card {
+        background: #343a40;
+        border-color: #495057;
+        color: white;
+    }
+    
+    .modal-content {
+        background-color: #343a40;
+        color: white;
+    }
+    
+    .modal-header {
+        background-color: #495057;
+        border-bottom-color: #6c757d;
+    }
+}

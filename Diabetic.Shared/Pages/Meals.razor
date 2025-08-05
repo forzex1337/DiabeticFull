@@ -1,0 +1,539 @@
+@namespace Diabetic.Shared.Pages
+@page "/meals"
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+
+<PageTitle>Meal Management</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-calendar me-2"></i>Meal Management</h2>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="ShowAddMealModal">
+                <i class="bi bi-plus-circle me-2"></i>Add Meal
+            </button>
+        </div>
+    </div>
+
+    <!-- Today's Summary -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Today's Carbs</h5>
+                    <h3>@(todayTotalCarbs.ToString("F0"))g</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Today's Calories</h5>
+                    <h3>@(todayTotalCalories.ToString("F0"))</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>Insulin Units</h5>
+                    <h3>@(todayTotalInsulin.ToString("F1"))</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5>Meals Today</h5>
+                    <h3>@todayMeals.Count</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Meal Buttons -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-clock me-2"></i>Quick Add</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Breakfast")'>
+                                <i class="bi bi-sunrise me-2"></i>Breakfast
+                            </button>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Lunch")'>
+                                <i class="bi bi-sun me-2"></i>Lunch
+                            </button>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Dinner")'>
+                                <i class="bi bi-moon me-2"></i>Dinner
+                            </button>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Snack")'>
+                                <i class="bi bi-apple me-2"></i>Snack
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Meals -->
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-list me-2"></i>Recent Meals</h5>
+                </div>
+                <div class="card-body">
+                    @if (!meals.Any())
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-plus-circle" style="font-size: 3rem;"></i>
+                            <p class="mt-2">No meals recorded yet. Add your first meal above.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var meal in meals.Take(10))
+                        {
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-2">
+                                            <span class="badge bg-primary fs-6">@meal.MealType</span>
+                                            <div class="text-muted small">@meal.MealTime.ToString("dd/MM HH:mm")</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>@(meal.Name ?? "Unnamed Meal")</strong>
+                                            @if (!string.IsNullOrEmpty(meal.Notes))
+                                            {
+                                                <div class="text-muted small">@meal.Notes</div>
+                                            }
+                                        </div>
+                                        <div class="col-md-5">
+                                            <div class="row text-center">
+                                                <div class="col">
+                                                    <div class="text-muted small">Calories</div>
+                                                    <strong>@meal.TotalCalories.ToString("F0")</strong>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="text-muted small">Carbs</div>
+                                                    <strong>@meal.TotalCarbs.ToString("F0")g</strong>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="text-muted small">Protein</div>
+                                                    <strong>@meal.TotalProtein.ToString("F0")g</strong>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="text-muted small">Insulin</div>
+                                                    <strong>@meal.EstimatedInsulinUnits.ToString("F1")u</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="@(() => EditMeal(meal))">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info me-1" @onclick="@(() => ViewMealDetails(meal))">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteMeal(meal.Id))">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Meal Modal -->
+<div class="modal fade @(showMealModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(editingMeal == null ? "Add" : "Edit") Meal</h5>
+                <button type="button" class="btn-close" @onclick="CloseMealModal"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="currentMeal" OnValidSubmit="SaveMeal">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Meal Type</label>
+                            <InputSelect @bind-Value="currentMeal.MealType" class="form-select">
+                                <option value="">Select type...</option>
+                                <option value="Breakfast">Breakfast</option>
+                                <option value="Lunch">Lunch</option>
+                                <option value="Dinner">Dinner</option>
+                                <option value="Snack">Snack</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => currentMeal.MealType" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Meal Time</label>
+                            <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="currentMeal.MealTime" class="form-control" />
+                            <ValidationMessage For="() => currentMeal.MealTime" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Meal Name (Optional)</label>
+                        <InputText @bind-Value="currentMeal.Name" class="form-control" placeholder="e.g. Grilled chicken with rice" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <InputTextArea @bind-Value="currentMeal.Notes" class="form-control" rows="2" placeholder="Any additional notes..."></InputTextArea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseMealModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>Save Meal
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Meal Details Modal -->
+<div class="modal fade @(showDetailsModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Meal Details - @(selectedMeal?.Name ?? selectedMeal?.MealType)</h5>
+                <button type="button" class="btn-close" @onclick="CloseDetailsModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (selectedMeal != null)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Type:</strong> @selectedMeal.MealType<br/>
+                            <strong>Time:</strong> @selectedMeal.MealTime.ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Total Calories:</strong> @selectedMeal.TotalCalories.ToString("F0")<br/>
+                            <strong>Estimated Insulin:</strong> @selectedMeal.EstimatedInsulinUnits.ToString("F1") units
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col">
+                            <h6>Nutritional Summary</h6>
+                            <div class="row text-center">
+                                <div class="col">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5>@selectedMeal.TotalCarbs.ToString("F0")g</h5>
+                                            <small>Carbs</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5>@selectedMeal.TotalProtein.ToString("F0")g</h5>
+                                            <small>Protein</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5>@selectedMeal.TotalFat.ToString("F0")g</h5>
+                                            <small>Fat</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5>@selectedMeal.TotalFiber.ToString("F0")g</h5>
+                                            <small>Fiber</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(selectedMeal.Notes))
+                    {
+                        <div class="mb-3">
+                            <h6>Notes</h6>
+                            <p>@selectedMeal.Notes</p>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <h6>Food Items</h6>
+                        <div class="text-muted">
+                            <small>Food items functionality will be added when food search is implemented</small>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDetailsModal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Meal> meals = new();
+    private List<Meal> todayMeals = new();
+    private double todayTotalCarbs = 0;
+    private double todayTotalCalories = 0;
+    private double todayTotalInsulin = 0;
+    
+    private bool showMealModal = false;
+    private bool showDetailsModal = false;
+    private Meal currentMeal = new();
+    private Meal? editingMeal;
+    private Meal? selectedMeal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // TODO: Replace with actual user ID from authentication
+            var userId = 1;
+            var startDate = DateTime.Today.AddDays(-30);
+            
+            // TODO: Replace with actual API call
+            // meals = await Http.GetFromJsonAsync<List<Meal>>($"/api/meals/user/{userId}?startDate={startDate:yyyy-MM-dd}") ?? new();
+            
+            // Mock data for demonstration
+            meals = GenerateMockMeals();
+            
+            CalculateStatistics();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Add proper error handling
+            Console.WriteLine($"Error loading meals data: {ex.Message}");
+        }
+    }
+
+    private void CalculateStatistics()
+    {
+        todayMeals = meals.Where(m => m.MealTime.Date == DateTime.Today).ToList();
+        todayTotalCarbs = todayMeals.Sum(m => m.TotalCarbs);
+        todayTotalCalories = todayMeals.Sum(m => m.TotalCalories);
+        todayTotalInsulin = todayMeals.Sum(m => m.EstimatedInsulinUnits);
+    }
+
+    private List<Meal> GenerateMockMeals()
+    {
+        var mockMeals = new List<Meal>();
+        var random = new Random();
+        var mealTypes = new[] { "Breakfast", "Lunch", "Dinner", "Snack" };
+        var mealNames = new[] { "Oatmeal with fruits", "Grilled chicken salad", "Pasta with vegetables", "Apple and nuts", "Scrambled eggs", "Sandwich" };
+        
+        for (int i = 0; i < 15; i++)
+        {
+            var carbs = random.Next(20, 80);
+            mockMeals.Add(new Meal
+            {
+                Id = i + 1,
+                UserId = 1,
+                MealType = mealTypes[random.Next(mealTypes.Length)],
+                MealTime = DateTime.Now.AddHours(-i * 8),
+                Name = mealNames[random.Next(mealNames.Length)],
+                TotalCalories = random.Next(200, 800),
+                TotalCarbs = carbs,
+                TotalProtein = random.Next(10, 40),
+                TotalFat = random.Next(5, 30),
+                TotalFiber = random.Next(2, 15),
+                EstimatedInsulinUnits = carbs / 12.0,
+                Notes = i % 4 == 0 ? "Felt great after this meal" : null,
+                CreatedAt = DateTime.Now.AddHours(-i * 8),
+                UpdatedAt = DateTime.Now.AddHours(-i * 8)
+            });
+        }
+        
+        return mockMeals.OrderByDescending(m => m.MealTime).ToList();
+    }
+
+    private void QuickAddMeal(string mealType)
+    {
+        var now = DateTime.Now;
+        var suggestedTime = mealType switch
+        {
+            "Breakfast" => new DateTime(now.Year, now.Month, now.Day, 8, 0, 0),
+            "Lunch" => new DateTime(now.Year, now.Month, now.Day, 12, 30, 0),
+            "Dinner" => new DateTime(now.Year, now.Month, now.Day, 18, 30, 0),
+            _ => now
+        };
+
+        editingMeal = null;
+        currentMeal = new Meal
+        {
+            UserId = 1, // TODO: Get from authentication
+            MealType = mealType,
+            MealTime = suggestedTime
+        };
+        showMealModal = true;
+    }
+
+    private void ShowAddMealModal()
+    {
+        editingMeal = null;
+        currentMeal = new Meal
+        {
+            UserId = 1, // TODO: Get from authentication
+            MealTime = DateTime.Now
+        };
+        showMealModal = true;
+    }
+
+    private void EditMeal(Meal meal)
+    {
+        editingMeal = meal;
+        currentMeal = new Meal
+        {
+            Id = meal.Id,
+            UserId = meal.UserId,
+            MealType = meal.MealType,
+            MealTime = meal.MealTime,
+            Name = meal.Name,
+            Notes = meal.Notes
+        };
+        showMealModal = true;
+    }
+
+    private void ViewMealDetails(Meal meal)
+    {
+        selectedMeal = meal;
+        showDetailsModal = true;
+    }
+
+    private void CloseMealModal()
+    {
+        showMealModal = false;
+        editingMeal = null;
+        currentMeal = new();
+    }
+
+    private void CloseDetailsModal()
+    {
+        showDetailsModal = false;
+        selectedMeal = null;
+    }
+
+    private async Task SaveMeal()
+    {
+        try
+        {
+            if (editingMeal == null)
+            {
+                // Add new meal
+                // TODO: Replace with actual API call
+                // await Http.PostAsJsonAsync("/api/meals", currentMeal);
+                
+                // Mock: Add to local list
+                currentMeal.Id = meals.Any() ? meals.Max(m => m.Id) + 1 : 1;
+                currentMeal.CreatedAt = DateTime.Now;
+                currentMeal.UpdatedAt = DateTime.Now;
+                meals.Insert(0, currentMeal);
+            }
+            else
+            {
+                // Update existing meal
+                // TODO: Replace with actual API call
+                // await Http.PutAsJsonAsync($"/api/meals/{currentMeal.Id}", currentMeal);
+                
+                // Mock: Update in local list
+                var index = meals.FindIndex(m => m.Id == currentMeal.Id);
+                if (index >= 0)
+                {
+                    meals[index].MealType = currentMeal.MealType;
+                    meals[index].MealTime = currentMeal.MealTime;
+                    meals[index].Name = currentMeal.Name;
+                    meals[index].Notes = currentMeal.Notes;
+                    meals[index].UpdatedAt = DateTime.Now;
+                }
+            }
+            
+            CalculateStatistics();
+            CloseMealModal();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Add proper error handling
+            Console.WriteLine($"Error saving meal: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteMeal(int id)
+    {
+        try
+        {
+            // TODO: Replace with actual API call
+            // await Http.DeleteAsync($"/api/meals/{id}");
+            
+            // Mock: Remove from local list
+            meals.RemoveAll(m => m.Id == id);
+            CalculateStatistics();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Add proper error handling
+            Console.WriteLine($"Error deleting meal: {ex.Message}");
+        }
+    }
+
+    public class Meal
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        
+        [Required]
+        public string MealType { get; set; } = string.Empty;
+        
+        [Required]
+        public DateTime MealTime { get; set; }
+        
+        public string? Name { get; set; }
+        public string? Notes { get; set; }
+        
+        public double TotalCalories { get; set; }
+        public double TotalCarbs { get; set; }
+        public double TotalSugars { get; set; }
+        public double TotalFiber { get; set; }
+        public double TotalProtein { get; set; }
+        public double TotalFat { get; set; }
+        public double EstimatedInsulinUnits { get; set; }
+        
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+}

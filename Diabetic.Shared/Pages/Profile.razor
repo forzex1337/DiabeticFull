@@ -1,0 +1,461 @@
+@namespace Diabetic.Shared.Pages
+@page "/profile"
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+
+<PageTitle>User Profile</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-person-circle me-2"></i>User Profile</h2>
+            <p class="text-muted">Manage your personal information and diabetes settings</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Profile Information -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-person me-2"></i>Personal Information</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="currentUser" OnValidSubmit="SaveProfile">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">First Name</label>
+                                <InputText @bind-Value="currentUser.FirstName" class="form-control" />
+                                <ValidationMessage For="() => currentUser.FirstName" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Last Name</label>
+                                <InputText @bind-Value="currentUser.LastName" class="form-control" />
+                                <ValidationMessage For="() => currentUser.LastName" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <InputText @bind-Value="currentUser.Email" class="form-control" readonly />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone Number</label>
+                                <InputText @bind-Value="currentUser.PhoneNumber" class="form-control" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Date of Birth</label>
+                                <InputDate @bind-Value="currentUser.DateOfBirth" class="form-control" />
+                                <ValidationMessage For="() => currentUser.DateOfBirth" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Gender</label>
+                                <InputSelect @bind-Value="currentUser.Gender" class="form-select">
+                                    <option value="">Select...</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Diabetes Type</label>
+                                <InputSelect @bind-Value="currentUser.DiabetesType" class="form-select">
+                                    <option value="">Select...</option>
+                                    <option value="Type1">Type 1</option>
+                                    <option value="Type2">Type 2</option>
+                                    <option value="Gestational">Gestational</option>
+                                </InputSelect>
+                                <ValidationMessage For="() => currentUser.DiabetesType" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Height (cm)</label>
+                                <InputNumber @bind-Value="currentUser.Height" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Weight (kg)</label>
+                                <InputNumber @bind-Value="currentUser.Weight" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Diagnosis Date</label>
+                                <InputDate @bind-Value="currentUser.DiagnosisDate" class="form-control" />
+                                <ValidationMessage For="() => currentUser.DiagnosisDate" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <InputTextArea @bind-Value="currentUser.Notes" class="form-control" rows="3" placeholder="Any additional notes about your condition..."></InputTextArea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-circle me-2"></i>
+                            }
+                            Save Profile
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+
+            <!-- Emergency Contacts -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-telephone me-2"></i>Emergency Contacts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Emergency Contact Name</label>
+                            <InputText @bind-Value="currentUser.EmergencyContact" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Emergency Contact Phone</label>
+                            <InputText @bind-Value="currentUser.EmergencyPhone" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Doctor Name</label>
+                            <InputText @bind-Value="currentUser.Doctor" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Doctor Phone</label>
+                            <InputText @bind-Value="currentUser.DoctorPhone" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings & Statistics -->
+        <div class="col-lg-4">
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-graph-up me-2"></i>Quick Stats</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-primary">@userStats.TotalGlucoseReadings</h4>
+                                <small class="text-muted">Glucose Readings</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success">@userStats.TotalMeals</h4>
+                            <small class="text-muted">Meals Logged</small>
+                        </div>
+                    </div>
+                    <hr />
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-info">@userStats.DaysActive</h4>
+                                <small class="text-muted">Days Active</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning">@userStats.AvgGlucose.ToString("F0")</h4>
+                            <small class="text-muted">Avg Glucose</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Ranges -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-bullseye me-2"></i>Target Ranges</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Target Glucose Range (mg/dL)</label>
+                        <div class="row">
+                            <div class="col-6">
+                                <InputNumber @bind-Value="targetRanges.MinGlucose" class="form-control" placeholder="Min" />
+                            </div>
+                            <div class="col-6">
+                                <InputNumber @bind-Value="targetRanges.MaxGlucose" class="form-control" placeholder="Max" />
+                            </div>
+                        </div>
+                        <small class="text-muted">Typical: 80-180 mg/dL</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Daily Carb Target (g)</label>
+                        <InputNumber @bind-Value="targetRanges.DailyCarbTarget" class="form-control" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Insulin-to-Carb Ratio</label>
+                        <div class="input-group">
+                            <span class="input-group-text">1 unit per</span>
+                            <InputNumber @bind-Value="targetRanges.InsulinToCarbRatio" class="form-control" />
+                            <span class="input-group-text">grams</span>
+                        </div>
+                        <small class="text-muted">Typical: 10-15 grams per unit</small>
+                    </div>
+                    
+                    <button class="btn btn-outline-primary w-100" @onclick="SaveTargetRanges">
+                        <i class="bi bi-check-circle me-2"></i>Save Targets
+                    </button>
+                </div>
+            </div>
+
+            <!-- App Settings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-gear me-2"></i>App Settings</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" @bind="appSettings.NotificationsEnabled" id="notifications">
+                        <label class="form-check-label" for="notifications">
+                            Enable Notifications
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" @bind="appSettings.DarkMode" id="darkmode">
+                        <label class="form-check-label" for="darkmode">
+                            Dark Mode
+                        </label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Units</label>
+                        <InputSelect @bind-Value="appSettings.GlucoseUnit" class="form-select">
+                            <option value="mg/dL">mg/dL</option>
+                            <option value="mmol/L">mmol/L</option>
+                        </InputSelect>
+                    </div>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" @bind="appSettings.DataSyncEnabled" id="datasync">
+                        <label class="form-check-label" for="datasync">
+                            Auto Data Sync
+                        </label>
+                    </div>
+                    
+                    <button class="btn btn-outline-primary w-100" @onclick="SaveAppSettings">
+                        <i class="bi bi-check-circle me-2"></i>Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private User currentUser = new();
+    private UserStats userStats = new();
+    private TargetRanges targetRanges = new();
+    private AppSettings appSettings = new();
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+    }
+
+    private async Task LoadUserData()
+    {
+        try
+        {
+            // TODO: Replace with actual API calls
+            // currentUser = await Http.GetFromJsonAsync<User>("/api/user/profile") ?? new();
+            // userStats = await Http.GetFromJsonAsync<UserStats>("/api/user/stats") ?? new();
+            // targetRanges = await Http.GetFromJsonAsync<TargetRanges>("/api/user/targets") ?? new();
+            // appSettings = await Http.GetFromJsonAsync<AppSettings>("/api/user/settings") ?? new();
+            
+            // Mock data for demonstration
+            LoadMockData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user data: {ex.Message}");
+        }
+    }
+
+    private void LoadMockData()
+    {
+        currentUser = new User
+        {
+            Id = 1,
+            Email = "user@example.com",
+            FirstName = "John",
+            LastName = "Doe",
+            DateOfBirth = new DateTime(1990, 5, 15),
+            Gender = "Male",
+            DiabetesType = "Type1",
+            Height = 175,
+            Weight = 75,
+            DiagnosisDate = new DateTime(2015, 3, 10),
+            PhoneNumber = "+1234567890",
+            EmergencyContact = "Jane Doe",
+            EmergencyPhone = "+1234567891",
+            Doctor = "Dr. Smith",
+            DoctorPhone = "+1234567892",
+            Notes = "Managing diabetes well with insulin pump",
+            CreatedAt = DateTime.Now.AddYears(-2),
+            UpdatedAt = DateTime.Now
+        };
+
+        userStats = new UserStats
+        {
+            TotalGlucoseReadings = 1247,
+            TotalMeals = 892,
+            DaysActive = 156,
+            AvgGlucose = 135.5
+        };
+
+        targetRanges = new TargetRanges
+        {
+            MinGlucose = 80,
+            MaxGlucose = 180,
+            DailyCarbTarget = 200,
+            InsulinToCarbRatio = 12
+        };
+
+        appSettings = new AppSettings
+        {
+            NotificationsEnabled = true,
+            DarkMode = false,
+            GlucoseUnit = "mg/dL",
+            DataSyncEnabled = true
+        };
+    }
+
+    private async Task SaveProfile()
+    {
+        isSaving = true;
+        
+        try
+        {
+            // TODO: Replace with actual API call
+            // await Http.PutAsJsonAsync("/api/user/profile", currentUser);
+            
+            // Mock save
+            await Task.Delay(500);
+            
+            // Show success message (you might want to use a toast notification)
+            Console.WriteLine("Profile saved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving profile: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task SaveTargetRanges()
+    {
+        try
+        {
+            // TODO: Replace with actual API call
+            // await Http.PutAsJsonAsync("/api/user/targets", targetRanges);
+            
+            // Mock save
+            await Task.Delay(300);
+            Console.WriteLine("Target ranges saved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving target ranges: {ex.Message}");
+        }
+    }
+
+    private async Task SaveAppSettings()
+    {
+        try
+        {
+            // TODO: Replace with actual API call
+            // await Http.PutAsJsonAsync("/api/user/settings", appSettings);
+            
+            // Mock save
+            await Task.Delay(300);
+            Console.WriteLine("App settings saved successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving app settings: {ex.Message}");
+        }
+    }
+
+    public class User
+    {
+        public int Id { get; set; }
+        
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+        
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        
+        [Required]
+        public DateTime DateOfBirth { get; set; }
+        
+        public string? Gender { get; set; }
+        
+        [Required]
+        public DateTime DiagnosisDate { get; set; }
+        
+        [Required]
+        public string DiabetesType { get; set; } = string.Empty;
+        
+        public double? Height { get; set; }
+        public double? Weight { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? EmergencyContact { get; set; }
+        public string? EmergencyPhone { get; set; }
+        public string? Doctor { get; set; }
+        public string? DoctorPhone { get; set; }
+        public string? Notes { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class UserStats
+    {
+        public int TotalGlucoseReadings { get; set; }
+        public int TotalMeals { get; set; }
+        public int DaysActive { get; set; }
+        public double AvgGlucose { get; set; }
+    }
+
+    public class TargetRanges
+    {
+        public double MinGlucose { get; set; } = 80;
+        public double MaxGlucose { get; set; } = 180;
+        public double DailyCarbTarget { get; set; } = 200;
+        public double InsulinToCarbRatio { get; set; } = 12;
+    }
+
+    public class AppSettings
+    {
+        public bool NotificationsEnabled { get; set; } = true;
+        public bool DarkMode { get; set; } = false;
+        public string GlucoseUnit { get; set; } = "mg/dL";
+        public bool DataSyncEnabled { get; set; } = true;
+    }
+}
