@@ -1,5 +1,7 @@
 @namespace Diabetic.Shared.Pages
 @page "/medications"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Medications</PageTitle>
 
@@ -22,3 +24,17 @@
         <p>This page will be implemented with medication tracking, reminder settings, and prescription management.</p>
     </div>
 </div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is logged in
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Redirect to login page if not authenticated
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+}

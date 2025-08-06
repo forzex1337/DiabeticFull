@@ -1,7 +1,14 @@
 @namespace Diabetic.Shared.Pages
 @page "/meals"
 @using System.ComponentModel.DataAnnotations
+@using System.Text.Json
+@using Microsoft.Extensions.Options
+@using Diabetic.Shared.Services
+@using Diabetic.Shared.Models
 @inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject IOptions<ApiConfiguration> ApiConfig
+@inject NavigationManager Navigation
 
 <PageTitle>Meal Management</PageTitle>
 
@@ -63,22 +70,22 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-3 col-sm-6 mb-2">
-                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Breakfast")'>
+                            <button class="btn btn-outline-primary w-100" @onclick='async () => await QuickAddMeal("Breakfast")'>
                                 <i class="bi bi-sunrise me-2"></i>Breakfast
                             </button>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-2">
-                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Lunch")'>
+                            <button class="btn btn-outline-primary w-100" @onclick='async () => await QuickAddMeal("Lunch")'>
                                 <i class="bi bi-sun me-2"></i>Lunch
                             </button>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-2">
-                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Dinner")'>
+                            <button class="btn btn-outline-primary w-100" @onclick='async () => await QuickAddMeal("Dinner")'>
                                 <i class="bi bi-moon me-2"></i>Dinner
                             </button>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-2">
-                            <button class="btn btn-outline-primary w-100" @onclick='() => QuickAddMeal("Snack")'>
+                            <button class="btn btn-outline-primary w-100" @onclick='async () => await QuickAddMeal("Snack")'>
                                 <i class="bi bi-apple me-2"></i>Snack
                             </button>
                         </div>
@@ -317,6 +324,15 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is logged in
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Redirect to login page if not authenticated
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        
         await LoadData();
     }
 
@@ -324,22 +340,47 @@
     {
         try
         {
-            // TODO: Replace with actual user ID from authentication
-            var userId = 1;
-            var startDate = DateTime.Today.AddDays(-30);
+            // Get userId from localStorage
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
             
-            // TODO: Replace with actual API call
-            // meals = await Http.GetFromJsonAsync<List<Meal>>($"/api/meals/user/{userId}?startDate={startDate:yyyy-MM-dd}") ?? new();
-            
-            // Mock data for demonstration
-            meals = GenerateMockMeals();
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Load real meals data from API
+                var startDate = DateTime.Today.AddDays(-30);
+                using var httpClient = new HttpClient();
+                var apiUrl = $"{ApiConfig.Value.BaseUrl}api/meals/my-meals?userId={userId}&startDate={startDate:yyyy-MM-dd}";
+                var response = await httpClient.GetAsync(apiUrl);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var mealsJson = await response.Content.ReadAsStringAsync();
+                    meals = JsonSerializer.Deserialize<List<Meal>>(mealsJson, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    }) ?? new List<Meal>();
+                    // Don't use mock data - show real data from database even if empty
+                }
+                else
+                {
+                    Console.WriteLine($"API call failed with status: {response.StatusCode}");
+                    // Show empty list on API error when user is logged in
+                    meals = new List<Meal>();
+                }
+            }
+            else
+            {
+                // No userId, load mock data
+                meals = GenerateMockMeals();
+            }
             
             CalculateStatistics();
         }
         catch (Exception ex)
         {
-            // TODO: Add proper error handling
             Console.WriteLine($"Error loading meals data: {ex.Message}");
+            // Fallback to mock data on error
+            meals = GenerateMockMeals();
+            CalculateStatistics();
         }
     }
 
@@ -364,7 +405,7 @@
             mockMeals.Add(new Meal
             {
                 Id = i + 1,
-                UserId = 1,
+                UserId = "1",
                 MealType = mealTypes[random.Next(mealTypes.Length)],
                 MealTime = DateTime.Now.AddHours(-i * 8),
                 Name = mealNames[random.Next(mealNames.Length)],
@@ -383,7 +424,7 @@
         return mockMeals.OrderByDescending(m => m.MealTime).ToList();
     }
 
-    private void QuickAddMeal(string mealType)
+    private async Task QuickAddMeal(string mealType)
     {
         var now = DateTime.Now;
         var suggestedTime = mealType switch
@@ -394,22 +435,30 @@
             _ => now
         };
 
+        // Get userId from localStorage
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        var userIdStr = !string.IsNullOrEmpty(userId) ? userId : "1";
+
         editingMeal = null;
         currentMeal = new Meal
         {
-            UserId = 1, // TODO: Get from authentication
+            UserId = userIdStr,
             MealType = mealType,
             MealTime = suggestedTime
         };
         showMealModal = true;
     }
 
-    private void ShowAddMealModal()
+    private async Task ShowAddMealModal()
     {
+        // Get userId from localStorage
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        var userIdStr = !string.IsNullOrEmpty(userId) ? userId : "1";
+
         editingMeal = null;
         currentMeal = new Meal
         {
-            UserId = 1, // TODO: Get from authentication
+            UserId = userIdStr,
             MealTime = DateTime.Now
         };
         showMealModal = true;
@@ -453,42 +502,84 @@
     {
         try
         {
-            if (editingMeal == null)
+            // Get userId from localStorage
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+            
+            if (!string.IsNullOrEmpty(userId))
             {
-                // Add new meal
-                // TODO: Replace with actual API call
-                // await Http.PostAsJsonAsync("/api/meals", currentMeal);
+                // Set the UserId for the meal
+                currentMeal.UserId = userId;
                 
-                // Mock: Add to local list
-                currentMeal.Id = meals.Any() ? meals.Max(m => m.Id) + 1 : 1;
-                currentMeal.CreatedAt = DateTime.Now;
-                currentMeal.UpdatedAt = DateTime.Now;
-                meals.Insert(0, currentMeal);
+                using var httpClient = new HttpClient();
+                
+                if (editingMeal == null)
+                {
+                    // Add new meal via API
+                    var json = JsonSerializer.Serialize(currentMeal);
+                    var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    var apiUrl = $"{ApiConfig.Value.BaseUrl}api/meals?userId={userId}";
+                    var response = await httpClient.PostAsync(apiUrl, content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Reload data from server
+                        await LoadData();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error saving meal to API: {response.StatusCode}");
+                        // Don't add to local list - show error instead
+                    }
+                }
+                else
+                {
+                    // Update existing meal via API
+                    var json = JsonSerializer.Serialize(currentMeal);
+                    var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                    var apiUrl = $"{ApiConfig.Value.BaseUrl}api/meals/{currentMeal.Id}";
+                    var response = await httpClient.PutAsync(apiUrl, content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        // Reload data from server
+                        await LoadData();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error updating meal via API: {response.StatusCode}");
+                        // Don't update local list - show error instead
+                    }
+                }
             }
             else
             {
-                // Update existing meal
-                // TODO: Replace with actual API call
-                // await Http.PutAsJsonAsync($"/api/meals/{currentMeal.Id}", currentMeal);
-                
-                // Mock: Update in local list
-                var index = meals.FindIndex(m => m.Id == currentMeal.Id);
-                if (index >= 0)
+                // No userId, use mock behavior
+                if (editingMeal == null)
                 {
-                    meals[index].MealType = currentMeal.MealType;
-                    meals[index].MealTime = currentMeal.MealTime;
-                    meals[index].Name = currentMeal.Name;
-                    meals[index].Notes = currentMeal.Notes;
-                    meals[index].UpdatedAt = DateTime.Now;
+                    currentMeal.Id = meals.Any() ? meals.Max(m => m.Id) + 1 : 1;
+                    currentMeal.CreatedAt = DateTime.Now;
+                    currentMeal.UpdatedAt = DateTime.Now;
+                    meals.Insert(0, currentMeal);
                 }
+                else
+                {
+                    var index = meals.FindIndex(m => m.Id == currentMeal.Id);
+                    if (index >= 0)
+                    {
+                        meals[index].MealType = currentMeal.MealType;
+                        meals[index].MealTime = currentMeal.MealTime;
+                        meals[index].Name = currentMeal.Name;
+                        meals[index].Notes = currentMeal.Notes;
+                        meals[index].UpdatedAt = DateTime.Now;
+                    }
+                }
+                CalculateStatistics();
             }
             
-            CalculateStatistics();
             CloseMealModal();
         }
         catch (Exception ex)
         {
-            // TODO: Add proper error handling
             Console.WriteLine($"Error saving meal: {ex.Message}");
         }
     }
@@ -497,43 +588,38 @@
     {
         try
         {
-            // TODO: Replace with actual API call
-            // await Http.DeleteAsync($"/api/meals/{id}");
+            // Get userId from localStorage
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
             
-            // Mock: Remove from local list
-            meals.RemoveAll(m => m.Id == id);
-            CalculateStatistics();
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Delete via API
+                using var httpClient = new HttpClient();
+                var apiUrl = $"{ApiConfig.Value.BaseUrl}api/meals/{id}";
+                var response = await httpClient.DeleteAsync(apiUrl);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    // Reload data from server
+                    await LoadData();
+                }
+                else
+                {
+                    Console.WriteLine($"Error deleting meal via API: {response.StatusCode}");
+                    // Don't modify local list - show error instead
+                }
+            }
+            else
+            {
+                // No userId, use mock behavior
+                meals.RemoveAll(m => m.Id == id);
+                CalculateStatistics();
+            }
         }
         catch (Exception ex)
         {
-            // TODO: Add proper error handling
             Console.WriteLine($"Error deleting meal: {ex.Message}");
         }
     }
 
-    public class Meal
-    {
-        public int Id { get; set; }
-        public int UserId { get; set; }
-        
-        [Required]
-        public string MealType { get; set; } = string.Empty;
-        
-        [Required]
-        public DateTime MealTime { get; set; }
-        
-        public string? Name { get; set; }
-        public string? Notes { get; set; }
-        
-        public double TotalCalories { get; set; }
-        public double TotalCarbs { get; set; }
-        public double TotalSugars { get; set; }
-        public double TotalFiber { get; set; }
-        public double TotalProtein { get; set; }
-        public double TotalFat { get; set; }
-        public double EstimatedInsulinUnits { get; set; }
-        
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-    }
 }

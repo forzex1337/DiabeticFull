@@ -18,7 +18,7 @@
 
 <div class="page">
     <div class="sidebar">
-        <NavMenu />
+        <NavMenu IsAuthenticated="isAuthenticated" />
     </div>
 
     <main>
@@ -63,16 +63,36 @@
         {
             if (forceLoggedOut)
             {
-                // User was explicitly logged out, don't check AuthenticationStateProvider
+                // User was explicitly logged out
                 isAuthenticated = false;
                 currentUser = null;
                 StateHasChanged();
                 return;
             }
             
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            currentUser = authState.User;
-            isAuthenticated = currentUser?.Identity?.IsAuthenticated ?? false;
+            // Check userId from localStorage (same as other pages)
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+            var wasAuthenticated = isAuthenticated;
+            isAuthenticated = !string.IsNullOrEmpty(userId);
+            
+            // If authentication state changed, also update the AuthenticationStateProvider data
+            if (isAuthenticated && !wasAuthenticated)
+            {
+                try
+                {
+                    var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                    currentUser = authState.User;
+                }
+                catch
+                {
+                    currentUser = null;
+                }
+            }
+            else if (!isAuthenticated)
+            {
+                currentUser = null;
+            }
+            
             StateHasChanged();
         }
         catch (Exception)
@@ -125,6 +145,9 @@
             // Set flag to override authentication state
             forceLoggedOut = true;
             
+            // Clear userId from localStorage
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userId");
+            
             // Update local state immediately
             isAuthenticated = false;
             currentUser = null;
@@ -145,6 +168,9 @@
             
             // Set flag to override authentication state
             forceLoggedOut = true;
+            
+            // Clear userId from localStorage
+            try { await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userId"); } catch { }
             
             // Update local state and redirect
             isAuthenticated = false;

@@ -1,7 +1,13 @@
 @namespace Diabetic.Shared.Pages
 @page "/profile"
 @using System.ComponentModel.DataAnnotations
+@using System.Text.Json
+@using Microsoft.Extensions.Options
+@using Diabetic.Shared.Services
 @inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject IOptions<ApiConfiguration> ApiConfig
+@inject NavigationManager Navigation
 
 <PageTitle>User Profile</PageTitle>
 
@@ -271,6 +277,15 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is logged in
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Redirect to login page if not authenticated
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        
         await LoadUserData();
     }
 
@@ -278,18 +293,152 @@
     {
         try
         {
-            // TODO: Replace with actual API calls
-            // currentUser = await Http.GetFromJsonAsync<User>("/api/user/profile") ?? new();
-            // userStats = await Http.GetFromJsonAsync<UserStats>("/api/user/stats") ?? new();
-            // targetRanges = await Http.GetFromJsonAsync<TargetRanges>("/api/user/targets") ?? new();
-            // appSettings = await Http.GetFromJsonAsync<AppSettings>("/api/user/settings") ?? new();
+            // Get userId from localStorage
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
             
-            // Mock data for demonstration
-            LoadMockData();
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Load real user data from API
+                using var httpClient = new HttpClient();
+                var apiUrl = $"{ApiConfig.Value.BaseUrl}api/auth/user?userId={userId}";
+                var response = await httpClient.GetAsync(apiUrl);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var userJson = await response.Content.ReadAsStringAsync();
+                    var userInfo = JsonSerializer.Deserialize<JsonElement>(userJson);
+                    
+                    // Map API response to User object
+                    currentUser = new User
+                    {
+                        Id = userInfo.GetProperty("id").GetString() ?? "",
+                        Email = userInfo.GetProperty("email").GetString() ?? "",
+                        FirstName = GetStringOrNull(userInfo, "firstName"),
+                        LastName = GetStringOrNull(userInfo, "lastName"),
+                        DiabetesType = GetStringOrNull(userInfo, "diabetesType") ?? "Unknown",
+                        DateOfBirth = GetDateTimeOrNull(userInfo, "dateOfBirth"),
+                        Gender = GetStringOrNull(userInfo, "gender"),
+                        Height = GetDoubleOrNull(userInfo, "height"),
+                        Weight = GetDoubleOrNull(userInfo, "weight"),
+                        PhoneNumber = GetStringOrNull(userInfo, "phoneNumber"),
+                        EmergencyContact = GetStringOrNull(userInfo, "emergencyContact"),
+                        EmergencyPhone = GetStringOrNull(userInfo, "emergencyPhone"),
+                        Doctor = GetStringOrNull(userInfo, "doctor"),
+                        DoctorPhone = GetStringOrNull(userInfo, "doctorPhone"),
+                        Notes = GetStringOrNull(userInfo, "notes"),
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+                    
+                    // Load real statistics from API
+                    await LoadUserStats();
+                }
+                else
+                {
+                    LoadMockData();
+                }
+            }
+            else
+            {
+                // No userId, load mock data
+                LoadMockData();
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading user data: {ex.Message}");
+            LoadMockData();
+        }
+    }
+    
+    private string? GetStringOrNull(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out var prop) && prop.ValueKind != JsonValueKind.Null)
+        {
+            return prop.GetString();
+        }
+        return null;
+    }
+    
+    private DateTime? GetDateTimeOrNull(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out var prop) && prop.ValueKind != JsonValueKind.Null)
+        {
+            if (DateTime.TryParse(prop.GetString(), out var date))
+            {
+                return date;
+            }
+        }
+        return null;
+    }
+    
+    private double? GetDoubleOrNull(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out var prop) && prop.ValueKind != JsonValueKind.Null)
+        {
+            return prop.GetDouble();
+        }
+        return null;
+    }
+
+    private async Task LoadUserStats()
+    {
+        try
+        {
+            // Get userId from localStorage
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+            
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Load real statistics from API
+                using var httpClient = new HttpClient();
+                var apiUrl = $"{ApiConfig.Value.BaseUrl}api/auth/user-stats?userId={userId}";
+                var response = await httpClient.GetAsync(apiUrl);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var statsJson = await response.Content.ReadAsStringAsync();
+                    var statsData = JsonSerializer.Deserialize<JsonElement>(statsJson);
+                    
+                    userStats = new UserStats
+                    {
+                        TotalGlucoseReadings = statsData.GetProperty("totalGlucoseReadings").GetInt32(),
+                        TotalMeals = statsData.GetProperty("totalMeals").GetInt32(),
+                        DaysActive = statsData.GetProperty("daysActive").GetInt32(),
+                        AvgGlucose = statsData.GetProperty("avgGlucose").GetDouble()
+                    };
+                }
+                else
+                {
+                    LoadMockStatsAndSettings();
+                }
+            }
+            else
+            {
+                LoadMockStatsAndSettings();
+            }
+            
+            // Load other settings (still mock for now)
+            targetRanges = new TargetRanges
+            {
+                MinGlucose = 80,
+                MaxGlucose = 180,
+                DailyCarbTarget = 200,
+                InsulinToCarbRatio = 12
+            };
+
+            appSettings = new AppSettings
+            {
+                NotificationsEnabled = true,
+                DarkMode = false,
+                GlucoseUnit = "mg/dL",
+                DataSyncEnabled = true
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user stats: {ex.Message}");
+            LoadMockStatsAndSettings();
         }
     }
 
@@ -297,7 +446,7 @@
     {
         currentUser = new User
         {
-            Id = 1,
+            Id = "1",
             Email = "user@example.com",
             FirstName = "John",
             LastName = "Doe",
@@ -342,20 +491,82 @@
         };
     }
 
+    private void LoadMockStatsAndSettings()
+    {
+        userStats = new UserStats
+        {
+            TotalGlucoseReadings = 1247,
+            TotalMeals = 892,
+            DaysActive = 156,
+            AvgGlucose = 135.5
+        };
+
+        targetRanges = new TargetRanges
+        {
+            MinGlucose = 80,
+            MaxGlucose = 180,
+            DailyCarbTarget = 200,
+            InsulinToCarbRatio = 12
+        };
+
+        appSettings = new AppSettings
+        {
+            NotificationsEnabled = true,
+            DarkMode = false,
+            GlucoseUnit = "mg/dL",
+            DataSyncEnabled = true
+        };
+    }
+
     private async Task SaveProfile()
     {
         isSaving = true;
         
         try
         {
-            // TODO: Replace with actual API call
-            // await Http.PutAsJsonAsync("/api/user/profile", currentUser);
+            // Get userId from localStorage
+            var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
             
-            // Mock save
-            await Task.Delay(500);
-            
-            // Show success message (you might want to use a toast notification)
-            Console.WriteLine("Profile saved successfully");
+            if (!string.IsNullOrEmpty(userId))
+            {
+                // Save to API
+                var updateModel = new
+                {
+                    firstName = currentUser.FirstName,
+                    lastName = currentUser.LastName,
+                    diabetesType = currentUser.DiabetesType,
+                    dateOfBirth = currentUser.DateOfBirth,
+                    gender = currentUser.Gender,
+                    height = currentUser.Height,
+                    weight = currentUser.Weight,
+                    phoneNumber = currentUser.PhoneNumber,
+                    emergencyContact = currentUser.EmergencyContact,
+                    emergencyPhone = currentUser.EmergencyPhone,
+                    doctor = currentUser.Doctor,
+                    doctorPhone = currentUser.DoctorPhone,
+                    notes = currentUser.Notes
+                };
+                
+                var json = JsonSerializer.Serialize(updateModel);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                
+                using var httpClient = new HttpClient();
+                var apiUrl = $"{ApiConfig.Value.BaseUrl}api/auth/user?userId={userId}";
+                var response = await httpClient.PutAsync(apiUrl, content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("Profile saved successfully");
+                }
+                else
+                {
+                    Console.WriteLine("Error saving profile");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No userId found - cannot save profile");
+            }
         }
         catch (Exception ex)
         {
@@ -403,7 +614,7 @@
 
     public class User
     {
-        public int Id { get; set; }
+        public string Id { get; set; } = string.Empty;
         
         [Required]
         [EmailAddress]
@@ -413,7 +624,7 @@
         public string? LastName { get; set; }
         
         [Required]
-        public DateTime DateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
         
         public string? Gender { get; set; }
         

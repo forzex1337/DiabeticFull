@@ -250,6 +250,18 @@
                 IsLoading = false;
                 StateHasChanged();
                 
+                // Parse response and save userId
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var registerResult = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                if (registerResult.TryGetProperty("userId", out var userIdProp))
+                {
+                    var userId = userIdProp.GetString();
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userId", userId);
+                    }
+                }
+                
                 // Wait a moment then redirect to home with force reload to refresh authentication state
                 await Task.Delay(1500);
                 Navigation.NavigateTo("/", forceLoad: true);

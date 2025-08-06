@@ -2,6 +2,8 @@
 @page "/glucose"
 @using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Glucose Tracking</PageTitle>
 
@@ -216,6 +218,15 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if user is logged in
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Redirect to login page if not authenticated
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        
         await LoadData();
     }
 

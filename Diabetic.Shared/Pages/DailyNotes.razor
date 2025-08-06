@@ -1,5 +1,7 @@
 @namespace Diabetic.Shared.Pages
 @page "/daily-notes"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Daily Notes</PageTitle>
 
@@ -22,3 +24,17 @@
         <p>This page will be implemented with daily note taking, mood tracking, sleep monitoring, and activity logging.</p>
     </div>
 </div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is logged in
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Redirect to login page if not authenticated
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+}

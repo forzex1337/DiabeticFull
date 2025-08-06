@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Diabetic.Shared.Models;
+using Diabetic.Data;
 using System.ComponentModel.DataAnnotations;
 
 namespace Diabetic.Controllers;
@@ -116,10 +118,19 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("user")]
-    [Authorize]
-    public async Task<IActionResult> GetCurrentUser()
+    public async Task<IActionResult> GetCurrentUser(string? userId = null)
     {
-        var user = await _userManager.GetUserAsync(User);
+        DiabeticUser? user = null;
+        
+        if (!string.IsNullOrEmpty(userId))
+        {
+            user = await _userManager.FindByIdAsync(userId);
+        }
+        else
+        {
+            user = await _userManager.GetUserAsync(User);
+        }
+        
         if (user == null)
         {
             return NotFound();
@@ -146,13 +157,22 @@ public class AuthController : ControllerBase
     }
 
     [HttpPut("user")]
-    [Authorize]
-    public async Task<IActionResult> UpdateCurrentUser([FromBody] UpdateUserModel model)
+    public async Task<IActionResult> UpdateCurrentUser([FromBody] UpdateUserModel model, string? userId = null)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var user = await _userManager.GetUserAsync(User);
+        DiabeticUser? user = null;
+        
+        if (!string.IsNullOrEmpty(userId))
+        {
+            user = await _userManager.FindByIdAsync(userId);
+        }
+        else
+        {
+            user = await _userManager.GetUserAsync(User);
+        }
+        
         if (user == null)
         {
             return NotFound();
@@ -272,6 +292,70 @@ public class AuthController : ControllerBase
             }
 
             return BadRequest("Unable to load user information from external provider.");
+        }
+    }
+
+    [HttpGet("user-stats")]
+    public async Task<ActionResult> GetUserStatistics(string? userId = null)
+    {
+        string actualUserId;
+        
+        if (!string.IsNullOrEmpty(userId))
+        {
+            actualUserId = userId;
+        }
+        else
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+            actualUserId = user.Id;
+        }
+
+        try
+        {
+            // Get statistics from database
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DiabeticDbContext>();
+            
+            // Calculate statistics
+            var totalGlucoseReadings = await context.GlucoseReadings
+                .CountAsync(g => g.UserId == actualUserId);
+                
+            var totalMeals = await context.Meals
+                .CountAsync(m => m.UserId == actualUserId);
+                
+            var avgGlucose = await context.GlucoseReadings
+                .Where(g => g.UserId == actualUserId)
+                .AverageAsync(g => (double?)g.Value) ?? 0.0;
+                
+            // Calculate days active (days with any activity)
+            var firstActivity = await context.GlucoseReadings
+                .Where(g => g.UserId == actualUserId)
+                .Select(g => g.MeasurementTime.Date)
+                .Union(
+                    context.Meals
+                        .Where(m => m.UserId == actualUserId)
+                        .Select(m => m.MealTime.Date)
+                )
+                .OrderBy(d => d)
+                .FirstOrDefaultAsync();
+                
+            var daysActive = firstActivity != default 
+                ? (int)(DateTime.Today - firstActivity).TotalDays + 1 
+                : 0;
+
+            return Ok(new
+            {
+                totalGlucoseReadings,
+                totalMeals,
+                avgGlucose,
+                daysActive
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calculating user statistics for user {UserId}", actualUserId);
+            return StatusCode(500, "Error calculating statistics");
         }
     }
 }

@@ -1,5 +1,7 @@
 @namespace Diabetic.Shared.Pages
 @page "/insulin"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Insulin Tracking</PageTitle>
 
@@ -22,3 +24,17 @@
         <p>This page will be implemented with insulin dose tracking, injection site management, and insulin type recording.</p>
     </div>
 </div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user is logged in
+        var userId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "userId");
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Redirect to login page if not authenticated
+            Navigation.NavigateTo("/login");
+            return;
+        }
+    }
+}

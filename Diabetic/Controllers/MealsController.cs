@@ -21,12 +21,22 @@ public class MealsController : ControllerBase
     }
 
     [HttpGet("my-meals")]
-    public async Task<ActionResult<List<Meal>>> GetMyMeals(DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<ActionResult<List<Meal>>> GetMyMeals(DateTime? startDate = null, DateTime? endDate = null, string? userId = null)
     {
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null) return Unauthorized();
+        string actualUserId;
         
-        var meals = await _mealService.GetMealsByUserAsync(user.Id, startDate, endDate);
+        if (!string.IsNullOrEmpty(userId))
+        {
+            actualUserId = userId;
+        }
+        else
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+            actualUserId = user.Id;
+        }
+        
+        var meals = await _mealService.GetMealsByUserAsync(actualUserId, startDate, endDate);
         return Ok(meals);
     }
 
@@ -41,15 +51,21 @@ public class MealsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<Meal>> AddMeal(Meal meal)
+    public async Task<ActionResult<Meal>> AddMeal(Meal meal, string? userId = null)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null) return Unauthorized();
-        
-        meal.UserId = user.Id;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            meal.UserId = userId;
+        }
+        else
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Unauthorized();
+            meal.UserId = user.Id;
+        }
         var result = await _mealService.AddMealAsync(meal);
         return CreatedAtAction(nameof(GetMeal), new { id = result.Id }, result);
     }
