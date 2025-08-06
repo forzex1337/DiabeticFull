@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Diabetic.Shared.Models;
 
 namespace Diabetic.Data;
 
-public class DiabeticDbContext : DbContext
+public class DiabeticDbContext : IdentityDbContext<DiabeticUser>
 {
     public DiabeticDbContext(DbContextOptions<DiabeticDbContext> options) : base(options)
     {
     }
 
-    public DbSet<User> Users { get; set; }
     public DbSet<GlucoseReading> GlucoseReadings { get; set; }
     public DbSet<InsulinRecord> InsulinRecords { get; set; }
     public DbSet<FoodProduct> FoodProducts { get; set; }
@@ -24,22 +24,18 @@ public class DiabeticDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // User entity configuration
-        modelBuilder.Entity<User>(entity =>
+        // DiabeticUser entity configuration
+        modelBuilder.Entity<DiabeticUser>(entity =>
         {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
             entity.Property(e => e.FirstName).HasMaxLength(100);
             entity.Property(e => e.LastName).HasMaxLength(100);
             entity.Property(e => e.DiabetesType).IsRequired().HasMaxLength(20);
             entity.Property(e => e.Gender).HasMaxLength(10);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.EmergencyContact).HasMaxLength(100);
             entity.Property(e => e.EmergencyPhone).HasMaxLength(20);
             entity.Property(e => e.Doctor).HasMaxLength(100);
             entity.Property(e => e.DoctorPhone).HasMaxLength(20);
             entity.Property(e => e.Notes).HasMaxLength(1000);
-            entity.HasIndex(e => e.Email).IsUnique();
         });
 
         // GlucoseReading entity configuration

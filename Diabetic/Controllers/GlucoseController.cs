@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Diabetic.Shared.Models;
 using Diabetic.Services;
 
@@ -6,19 +8,25 @@ namespace Diabetic.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class GlucoseController : ControllerBase
 {
     private readonly GlucoseService _glucoseService;
+    private readonly UserManager<DiabeticUser> _userManager;
 
-    public GlucoseController(GlucoseService glucoseService)
+    public GlucoseController(GlucoseService glucoseService, UserManager<DiabeticUser> userManager)
     {
         _glucoseService = glucoseService;
+        _userManager = userManager;
     }
 
-    [HttpGet("user/{userId}")]
-    public async Task<ActionResult<List<GlucoseReading>>> GetReadingsByUser(int userId, DateTime? startDate = null, DateTime? endDate = null)
+    [HttpGet("my-readings")]
+    public async Task<ActionResult<List<GlucoseReading>>> GetMyReadings(DateTime? startDate = null, DateTime? endDate = null)
     {
-        var readings = await _glucoseService.GetReadingsByUserAsync(userId, startDate, endDate);
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        
+        var readings = await _glucoseService.GetReadingsByUserAsync(user.Id, startDate, endDate);
         return Ok(readings);
     }
 
@@ -38,6 +46,10 @@ public class GlucoseController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        
+        reading.UserId = user.Id;
         var result = await _glucoseService.AddReadingAsync(reading);
         return CreatedAtAction(nameof(GetReading), new { id = result.Id }, result);
     }
@@ -65,10 +77,13 @@ public class GlucoseController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("user/{userId}/statistics")]
-    public async Task<ActionResult<GlucoseStatistics>> GetStatistics(int userId, DateTime startDate, DateTime endDate)
+    [HttpGet("my-statistics")]
+    public async Task<ActionResult<GlucoseStatistics>> GetMyStatistics(DateTime startDate, DateTime endDate)
     {
-        var statistics = await _glucoseService.GetStatisticsAsync(userId, startDate, endDate);
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        
+        var statistics = await _glucoseService.GetStatisticsAsync(user.Id, startDate, endDate);
         return Ok(statistics);
     }
 }

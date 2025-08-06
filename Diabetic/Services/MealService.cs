@@ -13,7 +13,7 @@ public class MealService
         _context = context;
     }
 
-    public async Task<List<Meal>> GetMealsByUserAsync(int userId, DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<List<Meal>> GetMealsByUserAsync(string userId, DateTime? startDate = null, DateTime? endDate = null)
     {
         var query = _context.Meals
             .Include(m => m.MealItems)

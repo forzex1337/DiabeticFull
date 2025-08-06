@@ -13,7 +13,7 @@ public class GlucoseService
         _context = context;
     }
 
-    public async Task<List<GlucoseReading>> GetReadingsByUserAsync(int userId, DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<List<GlucoseReading>> GetReadingsByUserAsync(string userId, DateTime? startDate = null, DateTime? endDate = null)
     {
         var query = _context.GlucoseReadings
             .Where(g => g.UserId == userId);
@@ -72,7 +72,7 @@ public class GlucoseService
         return true;
     }
 
-    public async Task<GlucoseStatistics> GetStatisticsAsync(int userId, DateTime startDate, DateTime endDate)
+    public async Task<GlucoseStatistics> GetStatisticsAsync(string userId, DateTime startDate, DateTime endDate)
     {
         var readings = await _context.GlucoseReadings
             .Where(g => g.UserId == userId && g.MeasurementTime >= startDate && g.MeasurementTime <= endDate)

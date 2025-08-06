@@ -5,7 +5,7 @@ namespace Diabetic.Shared.Models;
 public class Meal
 {
     public int Id { get; set; }
-    public int UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
     
     [Required]
     public string MealType { get; set; } = string.Empty; // Breakfast, Lunch, Dinner, Snack
@@ -28,7 +28,7 @@ public class Meal
     public DateTime UpdatedAt { get; set; }
     
     // Navigation properties
-    public User User { get; set; } = default!;
+    public DiabeticUser User { get; set; } = default!;
     public List<MealItem> MealItems { get; set; } = new();
     public List<GlucoseReading> GlucoseReadings { get; set; } = new();
     public List<InsulinRecord> InsulinRecords { get; set; } = new();

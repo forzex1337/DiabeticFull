@@ -1,14 +1,10 @@
+using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 
 namespace Diabetic.Shared.Models;
 
-public class User
+public class DiabeticUser : IdentityUser
 {
-    public int Id { get; set; }
-    
-    [Required, EmailAddress]
-    public string Email { get; set; } = string.Empty;
-    
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     
@@ -19,7 +15,6 @@ public class User
     public string? Gender { get; set; }
     public double? Height { get; set; } // cm
     public double? Weight { get; set; } // kg
-    public string? PhoneNumber { get; set; }
     public string? EmergencyContact { get; set; }
     public string? EmergencyPhone { get; set; }
     public string? Doctor { get; set; }

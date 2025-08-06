@@ -3,7 +3,7 @@ namespace Diabetic.Shared.Models;
 public class DailyNote
 {
     public int Id { get; set; }
-    public int UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
     
     public DateOnly Date { get; set; }
     public string? Notes { get; set; }
@@ -17,5 +17,5 @@ public class DailyNote
     public DateTime UpdatedAt { get; set; }
     
     // Navigation properties
-    public User User { get; set; } = default!;
+    public DiabeticUser User { get; set; } = default!;
 }

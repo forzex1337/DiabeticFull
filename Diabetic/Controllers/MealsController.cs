@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Diabetic.Shared.Models;
 using Diabetic.Services;
 
@@ -6,19 +8,25 @@ namespace Diabetic.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class MealsController : ControllerBase
 {
     private readonly MealService _mealService;
+    private readonly UserManager<DiabeticUser> _userManager;
 
-    public MealsController(MealService mealService)
+    public MealsController(MealService mealService, UserManager<DiabeticUser> userManager)
     {
         _mealService = mealService;
+        _userManager = userManager;
     }
 
-    [HttpGet("user/{userId}")]
-    public async Task<ActionResult<List<Meal>>> GetMealsByUser(int userId, DateTime? startDate = null, DateTime? endDate = null)
+    [HttpGet("my-meals")]
+    public async Task<ActionResult<List<Meal>>> GetMyMeals(DateTime? startDate = null, DateTime? endDate = null)
     {
-        var meals = await _mealService.GetMealsByUserAsync(userId, startDate, endDate);
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        
+        var meals = await _mealService.GetMealsByUserAsync(user.Id, startDate, endDate);
         return Ok(meals);
     }
 
@@ -38,6 +46,10 @@ public class MealsController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null) return Unauthorized();
+        
+        meal.UserId = user.Id;
         var result = await _mealService.AddMealAsync(meal);
         return CreatedAtAction(nameof(GetMeal), new { id = result.Id }, result);
     }

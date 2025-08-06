@@ -5,7 +5,7 @@ namespace Diabetic.Shared.Models;
 public class Medication
 {
     public int Id { get; set; }
-    public int UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
     
     [Required]
     public string Name { get; set; } = string.Empty;
@@ -29,6 +29,6 @@ public class Medication
     public DateTime UpdatedAt { get; set; }
     
     // Navigation properties
-    public User User { get; set; } = default!;
+    public DiabeticUser User { get; set; } = default!;
     public List<MedicationReminder> MedicationReminders { get; set; } = new();
 }

@@ -1,0 +1,147 @@
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Rejestracja - Diabetic App";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Rejestracja</h3>
+            </div>
+            <div class="card-body">
+                <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.FirstName" class="form-label">Imię</label>
+                                <input asp-for="Input.FirstName" class="form-control" />
+                                <span asp-validation-for="Input.FirstName" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.LastName" class="form-label">Nazwisko</label>
+                                <input asp-for="Input.LastName" class="form-control" />
+                                <span asp-validation-for="Input.LastName" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="Input.Email" class="form-label">Email</label>
+                        <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" />
+                        <span asp-validation-for="Input.Email" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.Password" class="form-label">Hasło</label>
+                                <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" />
+                                <span asp-validation-for="Input.Password" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.ConfirmPassword" class="form-label">Potwierdź hasło</label>
+                                <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+                                <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="Input.DiabetesType" class="form-label">Typ cukrzycy</label>
+                        <select asp-for="Input.DiabetesType" class="form-select" required>
+                            <option value="">Wybierz typ cukrzycy</option>
+                            <option value="Type1">Typ 1</option>
+                            <option value="Type2">Typ 2</option>
+                            <option value="Gestational">Ciążowa</option>
+                            <option value="Other">Inny</option>
+                        </select>
+                        <span asp-validation-for="Input.DiabetesType" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.DateOfBirth" class="form-label">Data urodzenia</label>
+                                <input asp-for="Input.DateOfBirth" class="form-control" type="date" />
+                                <span asp-validation-for="Input.DateOfBirth" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.Gender" class="form-label">Płeć</label>
+                                <select asp-for="Input.Gender" class="form-select">
+                                    <option value="">Wybierz płeć</option>
+                                    <option value="Male">Mężczyzna</option>
+                                    <option value="Female">Kobieta</option>
+                                    <option value="Other">Inna</option>
+                                </select>
+                                <span asp-validation-for="Input.Gender" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.Height" class="form-label">Wzrost (cm)</label>
+                                <input asp-for="Input.Height" class="form-control" type="number" step="0.1" />
+                                <span asp-validation-for="Input.Height" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label asp-for="Input.Weight" class="form-label">Waga (kg)</label>
+                                <input asp-for="Input.Weight" class="form-control" type="number" step="0.1" />
+                                <span asp-validation-for="Input.Weight" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="Input.PhoneNumber" class="form-label">Numer telefonu</label>
+                        <input asp-for="Input.PhoneNumber" class="form-control" />
+                        <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button id="registerSubmit" type="submit" class="btn btn-primary btn-lg">Zarejestruj się</button>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p>Lub zarejestruj się przez:</p>
+                    <div class="d-grid gap-2">
+                        <a asp-page="/Account/ExternalLogin" asp-route-provider="Google" class="btn btn-outline-danger">
+                            <i class="fab fa-google"></i> Google
+                        </a>
+                        <a asp-page="/Account/ExternalLogin" asp-route-provider="Facebook" class="btn btn-outline-primary">
+                            <i class="fab fa-facebook-f"></i> Facebook
+                        </a>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p>
+                        <a asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Masz już konto? Zaloguj się</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

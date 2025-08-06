@@ -5,7 +5,7 @@ namespace Diabetic.Shared.Models;
 public class InsulinRecord
 {
     public int Id { get; set; }
-    public int UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
     
     [Required]
     public string InsulinType { get; set; } = string.Empty; // Rapid, Long, Mixed
@@ -21,6 +21,6 @@ public class InsulinRecord
     public DateTime CreatedAt { get; set; }
     
     // Navigation properties
-    public User User { get; set; } = default!;
+    public DiabeticUser User { get; set; } = default!;
     public Meal? Meal { get; set; }
 }

@@ -5,7 +5,7 @@ namespace Diabetic.Shared.Models;
 public class Report
 {
     public int Id { get; set; }
-    public int UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
     
     [Required]
     public string ReportType { get; set; } = string.Empty; // Glucose, Insulin, Meal, Overall
@@ -20,5 +20,5 @@ public class Report
     public DateTime CreatedAt { get; set; }
     
     // Navigation properties
-    public User User { get; set; } = default!;
+    public DiabeticUser User { get; set; } = default!;
 }
