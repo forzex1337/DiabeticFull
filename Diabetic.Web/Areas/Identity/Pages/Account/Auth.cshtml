@@ -1,0 +1,219 @@
+@page "/Auth"
+@model AuthModel
+@{
+    ViewData["Title"] = "Logowanie / Rejestracja";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="authTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab" aria-controls="login" aria-selected="true">
+                            <i class="fas fa-sign-in-alt"></i> Logowanie
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button" role="tab" aria-controls="register" aria-selected="false">
+                            <i class="fas fa-user-plus"></i> Rejestracja
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body">
+                <div class="tab-content" id="authTabContent">
+                    <!-- LOGIN TAB -->
+                    <div class="tab-pane fade show active" id="login" role="tabpanel" aria-labelledby="login-tab">
+                        <form id="loginForm" asp-page="./Auth" asp-page-handler="Login" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                            
+                            <div class="form-group mb-3">
+                                <label asp-for="LoginInput.Email" class="form-label">Email</label>
+                                <input asp-for="LoginInput.Email" class="form-control" autocomplete="username" aria-required="true" />
+                                <span asp-validation-for="LoginInput.Email" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label asp-for="LoginInput.Password" class="form-label">Hasło</label>
+                                <input asp-for="LoginInput.Password" type="password" class="form-control" autocomplete="current-password" aria-required="true" />
+                                <span asp-validation-for="LoginInput.Password" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" asp-for="LoginInput.RememberMe" />
+                                <label class="form-check-label" asp-for="LoginInput.RememberMe">
+                                    Zapamiętaj mnie
+                                </label>
+                            </div>
+                            
+                            <div class="d-grid gap-2 mb-3">
+                                <button id="loginSubmit" type="submit" class="btn btn-primary btn-lg">Zaloguj się</button>
+                            </div>
+                        </form>
+                        
+                        <div class="text-center">
+                            <p>Lub zaloguj się przez:</p>
+                            <div class="d-grid gap-2">
+                                <a asp-page="/Account/ExternalLogin" asp-route-provider="Google" class="btn btn-outline-danger">
+                                    <i class="fab fa-google"></i> Google
+                                </a>
+                                <a asp-page="/Account/ExternalLogin" asp-route-provider="Facebook" class="btn btn-outline-primary">
+                                    <i class="fab fa-facebook-f"></i> Facebook
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- REGISTER TAB -->
+                    <div class="tab-pane fade" id="register" role="tabpanel" aria-labelledby="register-tab">
+                        <form id="registerForm" asp-page="./Auth" asp-page-handler="Register" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.FirstName" class="form-label">Imię</label>
+                                        <input asp-for="RegisterInput.FirstName" class="form-control" />
+                                        <span asp-validation-for="RegisterInput.FirstName" class="text-danger"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.LastName" class="form-label">Nazwisko</label>
+                                        <input asp-for="RegisterInput.LastName" class="form-control" />
+                                        <span asp-validation-for="RegisterInput.LastName" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label asp-for="RegisterInput.Email" class="form-label">Email</label>
+                                <input asp-for="RegisterInput.Email" class="form-control" autocomplete="username" aria-required="true" />
+                                <span asp-validation-for="RegisterInput.Email" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.Password" class="form-label">Hasło</label>
+                                        <input asp-for="RegisterInput.Password" type="password" class="form-control" autocomplete="new-password" aria-required="true" />
+                                        <span asp-validation-for="RegisterInput.Password" class="text-danger"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.ConfirmPassword" class="form-label">Potwierdź hasło</label>
+                                        <input asp-for="RegisterInput.ConfirmPassword" type="password" class="form-control" autocomplete="new-password" aria-required="true" />
+                                        <span asp-validation-for="RegisterInput.ConfirmPassword" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label asp-for="RegisterInput.DiabetesType" class="form-label">Typ cukrzycy</label>
+                                <select asp-for="RegisterInput.DiabetesType" class="form-select" required>
+                                    <option value="">Wybierz typ cukrzycy</option>
+                                    <option value="Type1">Typ 1</option>
+                                    <option value="Type2">Typ 2</option>
+                                    <option value="Gestational">Ciążowa</option>
+                                    <option value="Other">Inny</option>
+                                </select>
+                                <span asp-validation-for="RegisterInput.DiabetesType" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.DateOfBirth" class="form-label">Data urodzenia</label>
+                                        <input asp-for="RegisterInput.DateOfBirth" class="form-control" type="date" />
+                                        <span asp-validation-for="RegisterInput.DateOfBirth" class="text-danger"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.Gender" class="form-label">Płeć</label>
+                                        <select asp-for="RegisterInput.Gender" class="form-select">
+                                            <option value="">Wybierz płeć</option>
+                                            <option value="Male">Mężczyzna</option>
+                                            <option value="Female">Kobieta</option>
+                                            <option value="Other">Inna</option>
+                                        </select>
+                                        <span asp-validation-for="RegisterInput.Gender" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.Height" class="form-label">Wzrost (cm)</label>
+                                        <input asp-for="RegisterInput.Height" class="form-control" type="number" step="0.1" />
+                                        <span asp-validation-for="RegisterInput.Height" class="text-danger"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label asp-for="RegisterInput.Weight" class="form-label">Waga (kg)</label>
+                                        <input asp-for="RegisterInput.Weight" class="form-control" type="number" step="0.1" />
+                                        <span asp-validation-for="RegisterInput.Weight" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label asp-for="RegisterInput.PhoneNumber" class="form-label">Numer telefonu</label>
+                                <input asp-for="RegisterInput.PhoneNumber" class="form-control" />
+                                <span asp-validation-for="RegisterInput.PhoneNumber" class="text-danger"></span>
+                            </div>
+                            
+                            <div class="d-grid gap-2 mb-3">
+                                <button id="registerSubmit" type="submit" class="btn btn-success btn-lg">Zarejestruj się</button>
+                            </div>
+                        </form>
+                        
+                        <div class="text-center">
+                            <p>Lub zarejestruj się przez:</p>
+                            <div class="d-grid gap-2">
+                                <a asp-page="/Account/ExternalLogin" asp-route-provider="Google" class="btn btn-outline-danger">
+                                    <i class="fab fa-google"></i> Google
+                                </a>
+                                <a asp-page="/Account/ExternalLogin" asp-route-provider="Facebook" class="btn btn-outline-primary">
+                                    <i class="fab fa-facebook-f"></i> Facebook
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Switch to register tab if there are validation errors for register form
+        @if(!ViewData.ModelState.IsValid && Model.IsRegisterAttempt)
+        {
+            <text>
+            document.addEventListener('DOMContentLoaded', function() {
+                var registerTab = new bootstrap.Tab(document.getElementById('register-tab'));
+                registerTab.show();
+            });
+            </text>
+        }
+        
+        // Switch to login tab if there are validation errors for login form  
+        @if(!ViewData.ModelState.IsValid && !Model.IsRegisterAttempt)
+        {
+            <text>
+            document.addEventListener('DOMContentLoaded', function() {
+                var loginTab = new bootstrap.Tab(document.getElementById('login-tab'));
+                loginTab.show();
+            });
+            </text>
+        }
+    </script>
+}

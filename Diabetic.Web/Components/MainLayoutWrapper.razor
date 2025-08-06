@@ -1,0 +1,65 @@
+@using Diabetic.Shared.Layouts
+@using Diabetic.Shared.Pages
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inherits LayoutComponentBase
+
+<MainLayout @ref="mainLayout">
+    @if (IsLoginPage)
+    {
+        <Login @ref="loginComponent" />
+    }
+    else if (IsRegisterPage)
+    {
+        <Register @ref="registerComponent" />
+    }
+    else
+    {
+        @Body
+    }
+</MainLayout>
+
+@code {
+    private MainLayout? mainLayout;
+    private Login? loginComponent;
+    private Register? registerComponent;
+
+    private bool IsLoginPage => Navigation.Uri.EndsWith("/login");
+    private bool IsRegisterPage => Navigation.Uri.EndsWith("/register");
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        try
+        {
+            await task;
+            await InvokeAsync(() =>
+            {
+                StateHasChanged();
+                // Powiadom MainLayout o zmianie stanu autentyfikacji
+                mainLayout?.UpdateAuthenticationStateFromWrapper();
+            });
+        }
+        catch
+        {
+            // Ignore authentication state change errors
+        }
+    }
+}

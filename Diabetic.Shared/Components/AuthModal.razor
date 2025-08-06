@@ -1,0 +1,413 @@
+@using Diabetic.Shared.Models
+@inject ILogger<AuthModal> Logger
+@inject IJSRuntime JSRuntime
+
+<div class="modal fade @(IsVisible ? "show" : "")" id="authModal" tabindex="-1" style="display: @(IsVisible ? "block" : "none")" aria-labelledby="authModalLabel" aria-hidden="@(!IsVisible)">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <ul class="nav nav-tabs" id="authTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(ActiveTab == "login" ? "active" : "")" 
+                                @onclick='() => SetActiveTab("login")' 
+                                type="button" role="tab">
+                            <i class="fas fa-sign-in-alt"></i> Logowanie
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(ActiveTab == "register" ? "active" : "")" 
+                                @onclick='() => SetActiveTab("register")' 
+                                type="button" role="tab">
+                            <i class="fas fa-user-plus"></i> Rejestracja
+                        </button>
+                    </li>
+                </ul>
+                <button type="button" class="btn-close" @onclick="Hide" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger" role="alert">
+                        @ErrorMessage
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(SuccessMessage))
+                {
+                    <div class="alert alert-success" role="alert">
+                        @SuccessMessage
+                    </div>
+                }
+
+                <div class="tab-content">
+                    @if (ActiveTab == "login")
+                    {
+                        <div class="tab-pane fade show active">
+                            <EditForm Model="LoginModel" OnValidSubmit="HandleLogin">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary class="text-danger" />
+                                
+                                <div class="form-group mb-3">
+                                    <label for="loginEmail" class="form-label">Email</label>
+                                    <InputText id="loginEmail" class="form-control" @bind-Value="LoginModel.Email" autocomplete="username" />
+                                    <ValidationMessage For="() => LoginModel.Email" class="text-danger" />
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    <label for="loginPassword" class="form-label">Hasło</label>
+                                    <InputText id="loginPassword" type="password" class="form-control" @bind-Value="LoginModel.Password" autocomplete="current-password" />
+                                    <ValidationMessage For="() => LoginModel.Password" class="text-danger" />
+                                </div>
+                                
+                                <div class="form-check mb-3">
+                                    <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="LoginModel.RememberMe" />
+                                    <label class="form-check-label" for="rememberMe">
+                                        Zapamiętaj mnie
+                                    </label>
+                                </div>
+                                
+                                <div class="d-grid gap-2 mb-3">
+                                    <button type="submit" class="btn btn-primary btn-lg" disabled="@IsLoading">
+                                        @if (IsLoading)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            <span>Logowanie...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Zaloguj się</span>
+                                        }
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    }
+                    else if (ActiveTab == "register")
+                    {
+                        <div class="tab-pane fade show active">
+                            <EditForm Model="RegisterModel" OnValidSubmit="HandleRegister">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary class="text-danger" />
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="firstName" class="form-label">Imię</label>
+                                            <InputText id="firstName" class="form-control" @bind-Value="RegisterModel.FirstName" />
+                                            <ValidationMessage For="() => RegisterModel.FirstName" class="text-danger" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="lastName" class="form-label">Nazwisko</label>
+                                            <InputText id="lastName" class="form-control" @bind-Value="RegisterModel.LastName" />
+                                            <ValidationMessage For="() => RegisterModel.LastName" class="text-danger" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    <label for="registerEmail" class="form-label">Email</label>
+                                    <InputText id="registerEmail" class="form-control" @bind-Value="RegisterModel.Email" autocomplete="username" />
+                                    <ValidationMessage For="() => RegisterModel.Email" class="text-danger" />
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="registerPassword" class="form-label">Hasło</label>
+                                            <InputText id="registerPassword" type="password" class="form-control" @bind-Value="RegisterModel.Password" autocomplete="new-password" />
+                                            <ValidationMessage For="() => RegisterModel.Password" class="text-danger" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="confirmPassword" class="form-label">Potwierdź hasło</label>
+                                            <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="RegisterModel.ConfirmPassword" autocomplete="new-password" />
+                                            <ValidationMessage For="() => RegisterModel.ConfirmPassword" class="text-danger" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    <label for="diabetesType" class="form-label">Typ cukrzycy</label>
+                                    <InputSelect id="diabetesType" class="form-select" @bind-Value="RegisterModel.DiabetesType">
+                                        <option value="">Wybierz typ cukrzycy</option>
+                                        <option value="Type1">Typ 1</option>
+                                        <option value="Type2">Typ 2</option>
+                                        <option value="Gestational">Ciążowa</option>
+                                        <option value="Other">Inny</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="() => RegisterModel.DiabetesType" class="text-danger" />
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="dateOfBirth" class="form-label">Data urodzenia</label>
+                                            <InputDate id="dateOfBirth" class="form-control" @bind-Value="RegisterModel.DateOfBirth" />
+                                            <ValidationMessage For="() => RegisterModel.DateOfBirth" class="text-danger" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="gender" class="form-label">Płeć</label>
+                                            <InputSelect id="gender" class="form-select" @bind-Value="RegisterModel.Gender">
+                                                <option value="">Wybierz płeć</option>
+                                                <option value="Male">Mężczyzna</option>
+                                                <option value="Female">Kobieta</option>
+                                                <option value="Other">Inna</option>
+                                            </InputSelect>
+                                            <ValidationMessage For="() => RegisterModel.Gender" class="text-danger" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="height" class="form-label">Wzrost (cm)</label>
+                                            <InputNumber id="height" class="form-control" @bind-Value="RegisterModel.Height" />
+                                            <ValidationMessage For="() => RegisterModel.Height" class="text-danger" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label for="weight" class="form-label">Waga (kg)</label>
+                                            <InputNumber id="weight" class="form-control" @bind-Value="RegisterModel.Weight" />
+                                            <ValidationMessage For="() => RegisterModel.Weight" class="text-danger" />
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 mb-3">
+                                    <button type="submit" class="btn btn-success btn-lg" disabled="@IsLoading">
+                                        @if (IsLoading)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            <span>Rejestracja...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Zarejestruj się</span>
+                                        }
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    }
+                </div>
+
+                <hr>
+                
+                <div class="text-center">
+                    <p>Lub użyj:</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-danger" @onclick='() => HandleOAuthLogin("Google")' disabled="@IsLoading">
+                            <i class="fab fa-google"></i> Google
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick='() => HandleOAuthLogin("Facebook")' disabled="@IsLoading">
+                            <i class="fab fa-facebook-f"></i> Facebook
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (IsVisible)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    [Parameter] public EventCallback<LoginInputModel> OnLoginAttempt { get; set; }
+    [Parameter] public EventCallback<RegisterInputModel> OnRegisterAttempt { get; set; }
+    [Parameter] public EventCallback<string> OnOAuthLogin { get; set; }
+    [Parameter] public EventCallback OnLoginSuccess { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    public bool IsVisible { get; private set; } = false;
+    public string ActiveTab { get; private set; } = "login";
+    public bool IsLoading { get; private set; } = false;
+    public string? ErrorMessage { get; private set; }
+    public string? SuccessMessage { get; private set; }
+
+    public LoginInputModel LoginModel { get; set; } = new();
+    public RegisterInputModel RegisterModel { get; set; } = new();
+
+    public class LoginInputModel
+    {
+        [Required(ErrorMessage = "Email jest wymagany.")]
+        [EmailAddress(ErrorMessage = "Nieprawidłowy format email.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane.")]
+        public string Password { get; set; } = "";
+
+        public bool RememberMe { get; set; }
+    }
+
+    public class RegisterInputModel
+    {
+        [Required(ErrorMessage = "Email jest wymagany.")]
+        [EmailAddress(ErrorMessage = "Nieprawidłowy format email.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane.")]
+        [StringLength(100, ErrorMessage = "{0} musi mieć co najmniej {2} i maksymalnie {1} znaków.", MinimumLength = 6)]
+        public string Password { get; set; } = "";
+
+        [Required(ErrorMessage = "Potwierdzenie hasła jest wymagane.")]
+        [Compare("Password", ErrorMessage = "Hasła nie są identyczne.")]
+        public string ConfirmPassword { get; set; } = "";
+
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+
+        [Required(ErrorMessage = "Typ cukrzycy jest wymagany.")]
+        public string DiabetesType { get; set; } = "";
+
+        public DateTime? DateOfBirth { get; set; }
+        public string? Gender { get; set; }
+        
+        [Range(50, 300, ErrorMessage = "Wzrost musi być między 50 a 300 cm.")]
+        public double? Height { get; set; }
+        
+        [Range(10, 500, ErrorMessage = "Waga musi być między 10 a 500 kg.")]
+        public double? Weight { get; set; }
+    }
+
+    public void Show(string tab = "login")
+    {
+        ActiveTab = tab;
+        IsVisible = true;
+        ErrorMessage = null;
+        SuccessMessage = null;
+        StateHasChanged();
+    }
+
+    public void Hide()
+    {
+        IsVisible = false;
+        ResetForms();
+        StateHasChanged();
+        OnClose.InvokeAsync();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        ActiveTab = tab;
+        ErrorMessage = null;
+        SuccessMessage = null;
+        StateHasChanged();
+    }
+
+    private void ResetForms()
+    {
+        LoginModel = new LoginInputModel();
+        RegisterModel = new RegisterInputModel();
+        ErrorMessage = null;
+        SuccessMessage = null;
+        IsLoading = false;
+    }
+
+    private async Task HandleLogin()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await OnLoginAttempt.InvokeAsync(LoginModel);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Login error");
+            ErrorMessage = "Wystąpił błąd podczas logowania.";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void ShowLoginSuccess()
+    {
+        SuccessMessage = "Zalogowano pomyślnie!";
+        IsLoading = false;
+        StateHasChanged();
+        Task.Run(async () =>
+        {
+            await Task.Delay(1000);
+            Hide();
+            await OnLoginSuccess.InvokeAsync();
+        });
+    }
+
+    public void ShowLoginError(string error)
+    {
+        ErrorMessage = error;
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleRegister()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await OnRegisterAttempt.InvokeAsync(RegisterModel);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Registration error");
+            ErrorMessage = "Wystąpił błąd podczas rejestracji.";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void ShowRegisterSuccess()
+    {
+        SuccessMessage = "Konto zostało utworzone i zalogowano pomyślnie!";
+        IsLoading = false;
+        StateHasChanged();
+        Task.Run(async () =>
+        {
+            await Task.Delay(1500);
+            Hide();
+            await OnLoginSuccess.InvokeAsync();
+        });
+    }
+
+    public void ShowRegisterError(string error)
+    {
+        ErrorMessage = error;
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleOAuthLogin(string provider)
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await OnOAuthLogin.InvokeAsync(provider);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "OAuth login error");
+            ErrorMessage = $"Wystąpił błąd podczas logowania przez {provider}.";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+}

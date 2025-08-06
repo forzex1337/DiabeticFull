@@ -2,8 +2,11 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Diabetic.Data;
 using Diabetic.Shared.Models;
+using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,13 +36,43 @@ builder.Services.AddIdentity<DiabeticUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<DiabeticDbContext>()
 .AddDefaultTokenProviders();
 
+// Configure claims transformation
+builder.Services.AddScoped<IUserClaimsPrincipalFactory<DiabeticUser>, DiabeticUserClaimsPrincipalFactory>();
+
+// Add OAuth authentication
+builder.Services.AddAuthentication()
+    .AddGoogle(googleOptions =>
+    {
+        googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "";
+        googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "";
+    })
+    .AddFacebook(facebookOptions =>
+    {
+        facebookOptions.AppId = builder.Configuration["Authentication:Facebook:AppId"] ?? "";
+        facebookOptions.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"] ?? "";
+    });
+
 // Add HTTP client configured for the API
 builder.Services.AddHttpClient("DiabeticAPI", client =>
 {
-    client.BaseAddress = new Uri("https://localhost:7030/"); // API port from launchSettings.json
+    var baseUrl = builder.Configuration["DiabeticApi:BaseUrl"] ?? "https://localhost:7030/";
+    client.BaseAddress = new Uri(baseUrl);
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    handler.CookieContainer = new System.Net.CookieContainer();
+    handler.UseCookies = true;
+    return handler;
 });
 
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("DiabeticAPI"));
+
+// Add API configuration
+builder.Services.Configure<Diabetic.Shared.Services.ApiConfiguration>(options =>
+{
+    options.BaseUrl = builder.Configuration["DiabeticApi:BaseUrl"] ?? "https://localhost:7030/";
+});
 
 var app = builder.Build();
 
@@ -59,6 +92,105 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Add authentication endpoints
+app.MapPost("/api/auth/login", async (LoginRequest request, UserManager<DiabeticUser> userManager, 
+    SignInManager<DiabeticUser> signInManager, ILogger<Program> logger) =>
+{
+    try
+    {
+        var result = await signInManager.PasswordSignInAsync(request.Email, request.Password, request.RememberMe, lockoutOnFailure: false);
+        
+        if (result.Succeeded)
+        {
+            logger.LogInformation("User logged in successfully.");
+            return Results.Ok(new { success = true, message = "Login successful" });
+        }
+        else if (result.IsLockedOut)
+        {
+            return Results.BadRequest(new { success = false, message = "Konto zostało zablokowane." });
+        }
+        else
+        {
+            return Results.BadRequest(new { success = false, message = "Nieprawidłowy email lub hasło." });
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Login error");
+        return Results.Problem("Wystąpił błąd podczas logowania.");
+    }
+});
+
+app.MapPost("/api/auth/register", async (RegisterRequest request, UserManager<DiabeticUser> userManager, 
+    SignInManager<DiabeticUser> signInManager, ILogger<Program> logger) =>
+{
+    try
+    {
+        var user = new DiabeticUser
+        {
+            UserName = request.Email,
+            Email = request.Email,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            DiabetesType = request.DiabetesType,
+            DateOfBirth = request.DateOfBirth,
+            Gender = request.Gender,
+            Height = request.Height,
+            Weight = request.Weight,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(user, request.Password);
+
+        if (result.Succeeded)
+        {
+            logger.LogInformation("User created a new account.");
+
+            // Add user to BasicUser role
+            try
+            {
+                await userManager.AddToRoleAsync(user, "BasicUser");
+                logger.LogInformation("User added to BasicUser role.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to add user to BasicUser role.");
+            }
+
+            // Sign in the user
+            await signInManager.SignInAsync(user, isPersistent: false);
+            return Results.Ok(new { success = true, message = "Registration successful" });
+        }
+        else
+        {
+            var errors = string.Join(", ", result.Errors.Select(x => x.Description));
+            return Results.BadRequest(new { success = false, message = errors });
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Registration error");
+        return Results.Problem("Wystąpił błąd podczas rejestracji.");
+    }
+});
+
+app.MapPost("/api/auth/logout", async (SignInManager<DiabeticUser> signInManager, ILogger<Program> logger) =>
+{
+    try
+    {
+        await signInManager.SignOutAsync();
+        logger.LogInformation("User logged out successfully.");
+        return Results.Ok(new { success = true, message = "Logout successful" });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Logout error");
+        return Results.Problem("Wystąpił błąd podczas wylogowania.");
+    }
+});
+
 
 app.MapBlazorHub();
 app.MapRazorPages();
@@ -94,53 +226,53 @@ using (var scope = app.Services.CreateScope())
         {
             logger.LogInformation("Database connection successful.");
             
-            // Check if database already has the required tables
-            var appliedMigrations = await context.Database.GetAppliedMigrationsAsync();
-            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-            
-            logger.LogInformation($"Applied migrations: {appliedMigrations.Count()}");
-            logger.LogInformation($"Pending migrations: {pendingMigrations.Count()}");
-            
-            if (pendingMigrations.Any())
+            // Apply migrations to create database schema  
+            try
             {
-                logger.LogInformation("Attempting to apply migrations...");
+                logger.LogInformation("Applying database migrations...");
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database migrations applied successfully.");
+            }
+            catch (Exception migrationEx)
+            {
+                logger.LogWarning(migrationEx, "Migration failed. Trying to ensure database is created...");
+                
                 try
                 {
-                    await context.Database.MigrateAsync();
-                    logger.LogInformation("All migrations applied successfully.");
+                    var created = await context.Database.EnsureCreatedAsync();
+                    if (created)
+                    {
+                        logger.LogInformation("Database schema created with EnsureCreated.");
+                    }
+                    else
+                    {
+                        logger.LogInformation("Database schema already exists.");
+                    }
                 }
-                catch (Exception migrationEx)
+                catch (Exception ensureEx)
                 {
-                    logger.LogWarning(migrationEx, "Migration failed, but database may already have the required schema. Continuing...");
-                    
-                    // Try to ensure the database can be used
-                    try
-                    {
-                        await context.Database.EnsureCreatedAsync();
-                        logger.LogInformation("Database schema verified.");
-                    }
-                    catch (Exception ensureEx)
-                    {
-                        logger.LogWarning(ensureEx, "Could not verify database schema, but continuing to start application.");
-                    }
+                    logger.LogError(ensureEx, "Both migrations and EnsureCreated failed. Database may not work properly.");
                 }
             }
-            else if (!appliedMigrations.Any())
+            
+            // Create roles if they don't exist
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            string[] roles = { "Admin", "BasicUser", "PremiumUser", "ProUser" };
+            
+            foreach (string role in roles)
             {
-                // No migrations applied and none pending - try EnsureCreated
                 try
                 {
-                    await context.Database.EnsureCreatedAsync();
-                    logger.LogInformation("Database schema created.");
+                    if (!await roleManager.RoleExistsAsync(role))
+                    {
+                        await roleManager.CreateAsync(new IdentityRole(role));
+                        logger.LogInformation($"Role '{role}' created successfully.");
+                    }
                 }
-                catch (Exception createEx)
+                catch (Exception roleEx)
                 {
-                    logger.LogWarning(createEx, "Could not create database schema, but continuing to start application.");
+                    logger.LogWarning(roleEx, $"Failed to create role '{role}'. Continuing...");
                 }
-            }
-            else
-            {
-                logger.LogInformation("Database is up to date. No pending migrations.");
             }
         }
     }
@@ -152,3 +284,46 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+// Request models for authentication endpoints
+public record LoginRequest(string Email, string Password, bool RememberMe);
+
+public record RegisterRequest(
+    string Email, 
+    string Password, 
+    string? FirstName, 
+    string? LastName, 
+    string DiabetesType, 
+    DateTime? DateOfBirth, 
+    string? Gender, 
+    double? Height, 
+    double? Weight
+);
+
+// Custom claims principal factory to add user-specific claims
+public class DiabeticUserClaimsPrincipalFactory : UserClaimsPrincipalFactory<DiabeticUser, IdentityRole>
+{
+    public DiabeticUserClaimsPrincipalFactory(UserManager<DiabeticUser> userManager, 
+        RoleManager<IdentityRole> roleManager, IOptions<IdentityOptions> optionsAccessor)
+        : base(userManager, roleManager, optionsAccessor)
+    {
+    }
+
+    protected override async Task<ClaimsIdentity> GenerateClaimsAsync(DiabeticUser user)
+    {
+        var identity = await base.GenerateClaimsAsync(user);
+        
+        // Add custom claims
+        if (!string.IsNullOrWhiteSpace(user.FirstName))
+        {
+            identity.AddClaim(new Claim("FirstName", user.FirstName));
+        }
+        
+        if (!string.IsNullOrWhiteSpace(user.LastName))
+        {
+            identity.AddClaim(new Claim("LastName", user.LastName));
+        }
+        
+        return identity;
+    }
+}

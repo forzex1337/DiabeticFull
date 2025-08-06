@@ -14,7 +14,8 @@
       "Bash(dotnet tool install:*)",
       "Bash(dotnet add reference:*)",
       "Bash(mkdir:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

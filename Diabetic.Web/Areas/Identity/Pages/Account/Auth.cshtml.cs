@@ -7,18 +7,18 @@ using Diabetic.Shared.Models;
 
 namespace Diabetic.Web.Areas.Identity.Pages.Account;
 
-public class RegisterModel : PageModel
+public class AuthModel : PageModel
 {
     private readonly SignInManager<DiabeticUser> _signInManager;
     private readonly UserManager<DiabeticUser> _userManager;
     private readonly IUserStore<DiabeticUser> _userStore;
-    private readonly ILogger<RegisterModel> _logger;
+    private readonly ILogger<AuthModel> _logger;
 
-    public RegisterModel(
+    public AuthModel(
         UserManager<DiabeticUser> userManager,
         IUserStore<DiabeticUser> userStore,
         SignInManager<DiabeticUser> signInManager,
-        ILogger<RegisterModel> logger)
+        ILogger<AuthModel> logger)
     {
         _userManager = userManager;
         _userStore = userStore;
@@ -27,13 +27,32 @@ public class RegisterModel : PageModel
     }
 
     [BindProperty]
-    public InputModel Input { get; set; } = new();
+    public LoginInputModel LoginInput { get; set; } = new();
+
+    [BindProperty]
+    public RegisterInputModel RegisterInput { get; set; } = new();
 
     public string? ReturnUrl { get; set; }
 
     public IList<AuthenticationScheme> ExternalLogins { get; set; } = new List<AuthenticationScheme>();
 
-    public class InputModel
+    public bool IsRegisterAttempt { get; set; } = false;
+
+    public class LoginInputModel
+    {
+        [Required(ErrorMessage = "Email jest wymagany.")]
+        [EmailAddress(ErrorMessage = "Nieprawidłowy format email.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane.")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [Display(Name = "Zapamiętaj mnie")]
+        public bool RememberMe { get; set; }
+    }
+
+    public class RegisterInputModel
     {
         [Required(ErrorMessage = "Email jest wymagany.")]
         [EmailAddress(ErrorMessage = "Nieprawidłowy format email.")]
@@ -87,32 +106,66 @@ public class RegisterModel : PageModel
         ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
     }
 
-    public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
+    public async Task<IActionResult> OnPostLoginAsync(string? returnUrl = null)
     {
         returnUrl ??= Url.Content("~/");
         ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
-        
+        IsRegisterAttempt = false;
+
+        if (ModelState.IsValid)
+        {
+            var result = await _signInManager.PasswordSignInAsync(LoginInput.Email, LoginInput.Password, LoginInput.RememberMe, lockoutOnFailure: false);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("User logged in.");
+                return LocalRedirect(returnUrl);
+            }
+            if (result.RequiresTwoFactor)
+            {
+                return RedirectToPage("./LoginWith2fa", new { ReturnUrl = returnUrl, RememberMe = LoginInput.RememberMe });
+            }
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("User account locked out.");
+                return RedirectToPage("./Lockout");
+            }
+            else
+            {
+                ModelState.AddModelError(string.Empty, "Nieprawidłowe dane logowania.");
+                return Page();
+            }
+        }
+
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostRegisterAsync(string? returnUrl = null)
+    {
+        returnUrl ??= Url.Content("~/");
+        ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+        IsRegisterAttempt = true;
+
         if (ModelState.IsValid)
         {
             var user = new DiabeticUser
             {
-                UserName = Input.Email,
-                Email = Input.Email,
-                FirstName = Input.FirstName,
-                LastName = Input.LastName,
-                DiabetesType = Input.DiabetesType,
-                DateOfBirth = Input.DateOfBirth,
-                Gender = Input.Gender,
-                Height = Input.Height,
-                Weight = Input.Weight,
-                PhoneNumber = Input.PhoneNumber,
+                UserName = RegisterInput.Email,
+                Email = RegisterInput.Email,
+                FirstName = RegisterInput.FirstName,
+                LastName = RegisterInput.LastName,
+                DiabetesType = RegisterInput.DiabetesType,
+                DateOfBirth = RegisterInput.DateOfBirth,
+                Gender = RegisterInput.Gender,
+                Height = RegisterInput.Height,
+                Weight = RegisterInput.Weight,
+                PhoneNumber = RegisterInput.PhoneNumber,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
 
-            await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-            var result = await _userManager.CreateAsync(user, Input.Password);
-            
+            await _userStore.SetUserNameAsync(user, RegisterInput.Email, CancellationToken.None);
+            var result = await _userManager.CreateAsync(user, RegisterInput.Password);
+
             if (result.Succeeded)
             {
                 _logger.LogInformation("User created a new account with password.");
@@ -131,14 +184,13 @@ public class RegisterModel : PageModel
                 await _signInManager.SignInAsync(user, isPersistent: false);
                 return LocalRedirect(returnUrl);
             }
-            
+
             foreach (var error in result.Errors)
             {
                 ModelState.AddModelError(string.Empty, error.Description);
             }
         }
 
-        // If we got this far, something failed, redisplay form
         return Page();
     }
 }

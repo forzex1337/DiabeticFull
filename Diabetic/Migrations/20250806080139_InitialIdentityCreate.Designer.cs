@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Diabetic.Migrations
 {
     [DbContext(typeof(DiabeticDbContext))]
-    [Migration("20250805140357_AddDiabeticTables")]
-    partial class AddDiabeticTables
+    [Migration("20250806080139_InitialIdentityCreate")]
+    partial class InitialIdentityCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

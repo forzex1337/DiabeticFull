@@ -1,0 +1,212 @@
+@namespace Diabetic.Shared.Pages
+@page "/login"
+@using Diabetic.Shared.Models
+@using System.ComponentModel.DataAnnotations
+@using System.Text.Json
+@using System.Text
+@using Microsoft.Extensions.Options
+@using Diabetic.Shared.Services
+@inject ILogger<Login> Logger
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IOptions<ApiConfiguration> ApiConfig
+
+<PageTitle>Login - Diabetic</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-box-arrow-in-right me-2"></i>Logowanie</h2>
+            <p class="text-muted">Zaloguj się do swojego konta</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-box-arrow-in-right me-2"></i>Zaloguj się</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @ErrorMessage
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(SuccessMessage))
+                    {
+                        <div class="alert alert-success" role="alert">
+                            @SuccessMessage
+                        </div>
+                    }
+
+                    <EditForm Model="LoginModel" OnValidSubmit="HandleLogin">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+                        
+                        <div class="form-group mb-3">
+                            <label for="loginEmail" class="form-label">Email</label>
+                            <InputText id="loginEmail" class="form-control" @bind-Value="LoginModel.Email" autocomplete="username" />
+                            <ValidationMessage For="() => LoginModel.Email" class="text-danger" />
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="loginPassword" class="form-label">Hasło</label>
+                            <InputText id="loginPassword" type="password" class="form-control" @bind-Value="LoginModel.Password" autocomplete="current-password" />
+                            <ValidationMessage For="() => LoginModel.Password" class="text-danger" />
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="LoginModel.RememberMe" />
+                            <label class="form-check-label" for="rememberMe">
+                                Zapamiętaj mnie
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg" disabled="@IsLoading">
+                                @if (IsLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Logowanie...</span>
+                                }
+                                else
+                                {
+                                    <span>Zaloguj się</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <hr>
+                    
+                    <div class="text-center">
+                        <p>Lub użyj:</p>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-danger" @onclick='() => HandleOAuthLogin("Google")' disabled="@IsLoading">
+                                <i class="fab fa-google me-2"></i> Google
+                            </button>
+                            <button class="btn btn-outline-primary" @onclick='() => HandleOAuthLogin("Facebook")' disabled="@IsLoading">
+                                <i class="fab fa-facebook-f me-2"></i> Facebook
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <p>Nie masz konta? <a href="/register" class="btn btn-link p-0">Zarejestruj się</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    public bool IsLoading { get; private set; } = false;
+    public string? ErrorMessage { get; private set; }
+    public string? SuccessMessage { get; private set; }
+
+    public LoginInputModel LoginModel { get; set; } = new();
+
+    public class LoginInputModel
+    {
+        [Required(ErrorMessage = "Email jest wymagany.")]
+        [EmailAddress(ErrorMessage = "Nieprawidłowy format email.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Hasło jest wymagane.")]
+        public string Password { get; set; } = "";
+
+        public bool RememberMe { get; set; }
+    }
+
+    private async Task HandleLogin()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var loginData = new
+            {
+                Email = LoginModel.Email,
+                Password = LoginModel.Password,
+                RememberMe = LoginModel.RememberMe
+            };
+
+            var json = JsonSerializer.Serialize(loginData);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            // Direct call to Diabetic API
+            using var httpClient = new HttpClient();
+            var apiUrl = $"{ApiConfig.Value.BaseUrl}api/auth/login";
+            var response = await httpClient.PostAsync(apiUrl, content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                SuccessMessage = "Zalogowano pomyślnie!";
+                IsLoading = false;
+                StateHasChanged();
+                
+                // Wait a moment then redirect to home with force reload to refresh authentication state
+                await Task.Delay(1000);
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                var errorResponse = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorData = JsonSerializer.Deserialize<JsonElement>(errorResponse);
+                    if (errorData.TryGetProperty("message", out var messageProperty))
+                    {
+                        ErrorMessage = messageProperty.GetString();
+                    }
+                    else
+                    {
+                        ErrorMessage = "Błąd podczas logowania.";
+                    }
+                }
+                catch
+                {
+                    ErrorMessage = "Błąd podczas logowania.";
+                }
+                IsLoading = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Login error");
+            ErrorMessage = "Wystąpił błąd podczas logowania.";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleOAuthLogin(string provider)
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Redirect to external login
+            await JSRuntime.InvokeVoidAsync("location.assign", $"/Identity/Account/ExternalLogin?provider={provider}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "OAuth login error");
+            ErrorMessage = $"Wystąpił błąd podczas logowania przez {provider}.";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+}

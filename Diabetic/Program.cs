@@ -16,9 +16,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp", policy =>
     {
-        policy.WithOrigins("https://localhost:7001", "http://localhost:5001")
+        policy.WithOrigins("https://localhost:7058", "https://localhost:7195", "https://localhost:5001", "http://localhost:5001")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -119,53 +120,59 @@ using (var scope = app.Services.CreateScope())
         
         logger.LogInformation("Database connection successful.");
         
-        // Check if database already has the required tables
-        var appliedMigrations = await context.Database.GetAppliedMigrationsAsync();
-        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-        
-        logger.LogInformation($"Applied migrations: {appliedMigrations.Count()}");
-        logger.LogInformation($"Pending migrations: {pendingMigrations.Count()}");
-        
-        if (pendingMigrations.Any())
+        // Apply migrations to create database schema
+        try
         {
-            logger.LogInformation("Attempting to apply migrations...");
-            try
+            logger.LogInformation("Checking for pending migrations...");
+            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+            
+            if (pendingMigrations.Any())
             {
+                logger.LogInformation($"Found {pendingMigrations.Count()} pending migrations. Applying...");
                 await context.Database.MigrateAsync();
-                logger.LogInformation("All migrations applied successfully.");
+                logger.LogInformation("Database migrations applied successfully.");
             }
-            catch (Exception migrationEx)
+            else
             {
-                logger.LogWarning(migrationEx, "Migration failed, but database may already have the required schema. Continuing...");
-                
-                // Try to ensure the database can be used
-                try
-                {
-                    await context.Database.EnsureCreatedAsync();
-                    logger.LogInformation("Database schema verified.");
-                }
-                catch (Exception ensureEx)
-                {
-                    logger.LogWarning(ensureEx, "Could not verify database schema, but continuing to start application.");
-                }
+                logger.LogInformation("Database is up to date.");
             }
         }
-        else if (!appliedMigrations.Any())
+        catch (Exception migrationEx)
         {
-            // No migrations applied and none pending - try EnsureCreated
+            logger.LogError(migrationEx, "Migration failed.");
+            
+            // If migrations fail completely, try to recreate database
             try
             {
-                await context.Database.EnsureCreatedAsync();
-                logger.LogInformation("Database schema created.");
+                logger.LogWarning("Attempting to delete and recreate database...");
+                await context.Database.EnsureDeletedAsync();
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database recreated successfully with migrations.");
             }
-            catch (Exception createEx)
+            catch (Exception recreateEx)
             {
-                logger.LogWarning(createEx, "Could not create database schema, but continuing to start application.");
+                logger.LogError(recreateEx, "Failed to recreate database. Manual intervention may be required.");
             }
         }
-        else
+        
+        // Create roles if they don't exist
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        string[] roles = { "Admin", "BasicUser", "PremiumUser", "ProUser" };
+        
+        foreach (string role in roles)
         {
-            logger.LogInformation("Database is up to date. No pending migrations.");
+            try
+            {
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(role));
+                    logger.LogInformation($"Role '{role}' created successfully.");
+                }
+            }
+            catch (Exception roleEx)
+            {
+                logger.LogWarning(roleEx, $"Failed to create role '{role}'. Continuing...");
+            }
         }
     }
     catch (Exception ex)

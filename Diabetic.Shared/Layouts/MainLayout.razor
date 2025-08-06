@@ -1,5 +1,18 @@
 @namespace Diabetic.Shared.Layouts
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using Diabetic.Shared.Models
+@using System.Security.Claims
+@using System.Text.Json
+@using System.Text
+@using System.Collections.Generic
+@using Microsoft.Extensions.Options
+@using Diabetic.Shared.Services
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject IOptions<ApiConfiguration> ApiConfig
 
 <PageTitle>Diabetic</PageTitle>
 
@@ -9,14 +22,135 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="/Identity/Account/Login">Login</a>
-            <a href="/Identity/Account/Register">Register</a>
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 auth">
+            @if (isAuthenticated && currentUser != null)
+            {
+                <span class="me-3">
+                    Witaj, @GetUserDisplayName(currentUser)!
+                </span>
+                <button class="btn btn-link p-0" @onclick="HandleLogout">Logout</button>
+            }
+            else
+            {
+                <a href="/login" class="btn btn-link p-0">Login</a>
+                <a href="/register" class="btn btn-link p-0 ms-2">Register</a>
+                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank" class="ms-3">About</a>
+            }
         </div>
 
         <article class="content px-4">
-            @Body
+            @ChildContent
         </article>
     </main>
 </div>
+
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    
+    private bool isAuthenticated = false;
+    private ClaimsPrincipal? currentUser = null;
+    private bool forceLoggedOut = false; // Override authentication state after logout
+
+    protected override async Task OnInitializedAsync()
+    {
+        await UpdateAuthenticationState();
+    }
+
+    private async Task UpdateAuthenticationState()
+    {
+        try
+        {
+            if (forceLoggedOut)
+            {
+                // User was explicitly logged out, don't check AuthenticationStateProvider
+                isAuthenticated = false;
+                currentUser = null;
+                StateHasChanged();
+                return;
+            }
+            
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            currentUser = authState.User;
+            isAuthenticated = currentUser?.Identity?.IsAuthenticated ?? false;
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            isAuthenticated = false;
+            currentUser = null;
+        }
+    }
+
+    public async void UpdateAuthenticationStateFromWrapper()
+    {
+        await UpdateAuthenticationState();
+    }
+
+    private string GetUserDisplayName(ClaimsPrincipal user)
+    {
+        // Try to get first name and last name
+        var firstName = user.FindFirst("FirstName")?.Value ?? user.FindFirst(ClaimTypes.GivenName)?.Value;
+        var lastName = user.FindFirst("LastName")?.Value ?? user.FindFirst(ClaimTypes.Surname)?.Value;
+        
+        if (!string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(lastName))
+        {
+            return $"{firstName} {lastName}";
+        }
+        
+        if (!string.IsNullOrEmpty(firstName))
+        {
+            return firstName;
+        }
+        
+        // Fall back to email
+        return user.FindFirst(ClaimTypes.Email)?.Value ?? 
+               user.FindFirst(ClaimTypes.Name)?.Value ?? 
+               "Użytkownik";
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            // First call Diabetic API logout
+            using var httpClient = new HttpClient();
+            var apiUrl = $"{ApiConfig.Value.BaseUrl}api/auth/logout";
+            var response = await httpClient.PostAsync(apiUrl, new StringContent("", Encoding.UTF8, "application/json"));
+
+            // Then call local logout to clear local session
+            using var localHttpClient = new HttpClient { BaseAddress = new Uri(Navigation.BaseUri) };
+            await localHttpClient.PostAsync("/api/auth/logout", new StringContent("", Encoding.UTF8, "application/json"));
+
+            // Set flag to override authentication state
+            forceLoggedOut = true;
+            
+            // Update local state immediately
+            isAuthenticated = false;
+            currentUser = null;
+            StateHasChanged();
+            
+            // Don't use forceLoad to avoid restoring authentication state
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception)
+        {
+            // If logout fails, try to clear local session and redirect
+            try
+            {
+                using var localHttpClient = new HttpClient { BaseAddress = new Uri(Navigation.BaseUri) };
+                await localHttpClient.PostAsync("/api/auth/logout", new StringContent("", Encoding.UTF8, "application/json"));
+            }
+            catch { }
+            
+            // Set flag to override authentication state
+            forceLoggedOut = true;
+            
+            // Update local state and redirect
+            isAuthenticated = false;
+            currentUser = null;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("location.assign", "/");
+        }
+    }
+}
